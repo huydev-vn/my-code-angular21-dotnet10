@@ -1,0 +1,19 @@
+---
+description: Angular 21 Feature-Based frontend conventions
+globs: client/**/*.{ts,html,scss,css}
+alwaysApply: false
+---
+
+# Angular Frontend
+
+- Use standalone components; do not introduce NgModules unless required by a library.
+- Prefer `inject()` for DI in new code.
+- Use Signals for local UI state; use `computed`/`linkedSignal` when derived state is needed.
+- Prefer Signal Forms on Angular 21+ when adding new forms.
+- Feature folders own routes, pages, components, services, and models for that feature.
+- Put HTTP clients and feature state close to the feature that owns them.
+- `core/` is for app-wide singletons only (auth, interceptors, config).
+- `shared/` only for reuse across 2+ features; no feature-specific code.
+- Keep templates lean; move non-trivial logic into component class or services.
+- Use Angular CLI (`ng generate`) for scaffolding to match project conventions.
+- After meaningful frontend changes, run `ng build` (and tests when touching behavior).

@@ -1,0 +1,48 @@
+---
+description: Clean Architecture (.NET) + Feature-Based (Angular) for this monorepo
+alwaysApply: true
+---
+
+# Architecture
+
+This repo is a .NET 10 API + Angular 21 client.
+
+## Backend (Clean Architecture)
+
+Target layers:
+
+- `Domain` — entities, value objects, domain rules. No framework deps.
+- `Application` — use cases, DTOs, interfaces, validators. Depends only on Domain.
+- `Infrastructure` — EF Core, external services, auth persistence. Implements Application interfaces.
+- `Api` — HTTP only: endpoints/controllers, middleware, DI composition root.
+
+Rules:
+
+- Dependencies point inward only.
+- No business logic in controllers/endpoints.
+- Never return EF entities from API; map to DTOs.
+- Do not introduce MediatR, Generic Repository, or CQRS unless explicitly requested.
+- Prefer vertical slices inside Application by feature/use case when helpful.
+
+## Frontend (Feature-Based)
+
+```text
+src/app/
+  core/      # singleton services, interceptors, guards, providers
+  shared/    # truly reusable UI/utils only
+  layout/    # shell/layout
+  features/  # one folder per feature
+```
+
+Rules:
+
+- Organize by feature, not by file type.
+- Features own their pages, components, services, models, and routes.
+- No cross-feature deep imports; expose a public API if sharing is required.
+- Keep `shared` thin.
+
+## Default stack choices
+
+- .NET 10, nullable enabled, async + `CancellationToken`
+- Angular standalone components + Signals
+- Tailwind already in client; follow existing styling setup

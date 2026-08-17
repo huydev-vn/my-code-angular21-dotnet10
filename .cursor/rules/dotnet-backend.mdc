@@ -1,0 +1,20 @@
+---
+description: .NET 10 Clean Architecture API conventions
+globs: api/**/*.{cs,csproj,json}
+alwaysApply: false
+---
+
+# .NET Backend
+
+- Target `net10.0`, keep nullable and implicit usings on.
+- Controllers/Minimal APIs only orchestrate; call Application use cases.
+- Register dependencies in composition root; no service locator.
+- Use async APIs end-to-end with `CancellationToken`.
+- Validation belongs at Application boundary (FluentValidation or equivalent), not buried in controllers.
+- Prefer explicit DTOs for request/response contracts.
+- Keep Domain free of EF Core, ASP.NET, and HTTP types.
+- Infrastructure owns `DbContext`, migrations, and external integrations.
+- Prefer Central Package Management (`Directory.Packages.props`) for multi-project solutions.
+- Use `Directory.Build.props` for shared build settings across solution projects.
+- Structured logging only; never log secrets or full PII.
+- After meaningful backend changes, run `dotnet build` and relevant `dotnet test`.

@@ -1,0 +1,26 @@
+---
+description: Testing expectations for .NET and Angular
+globs: "**/*.{cs,ts,spec.ts}"
+alwaysApply: false
+---
+
+# Testing
+
+## .NET
+
+- Domain and Application get unit tests first.
+- API gets integration tests for critical endpoints.
+- Prefer behavior assertions over implementation details.
+- Use the solution's chosen test framework consistently (default toward MSTest skills already installed unless the solution already uses another).
+- After bug fixes, add a regression test when practical.
+
+## Angular
+
+- Test non-trivial services and components with Vitest/`ng test`.
+- Prefer testing user-visible behavior and public APIs.
+- Mock HTTP at the boundary; do not hit the real API in unit tests.
+
+## Commands
+
+- Backend: `dotnet test`
+- Frontend: `ng test` / project test script; also `ng build` after structural changes

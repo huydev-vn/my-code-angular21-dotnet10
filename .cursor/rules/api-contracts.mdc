@@ -1,0 +1,16 @@
+---
+description: Angular ↔ .NET API contract conventions
+globs: "{api/**/*.cs,client/src/**/*.ts}"
+alwaysApply: false
+---
+
+# API Contracts
+
+- Treat OpenAPI/Swagger as the source of truth for HTTP contracts when available.
+- Frontend models mirror API DTOs, not database entities.
+- Standardize error payloads (problem details / consistent envelope) and handle them in one HTTP interceptor path.
+- Standardize list APIs: pagination, filtering, sorting query shapes.
+- Never hard-code absolute API base URLs inside features; use environment/config providers.
+- Auth tokens and credentials stay in `core` HTTP interceptors, not feature services.
+- Prefer typed HttpClient calls; avoid `any` for request/response bodies.
+- Breaking API changes require updating Angular consumers in the same change set when feasible.
