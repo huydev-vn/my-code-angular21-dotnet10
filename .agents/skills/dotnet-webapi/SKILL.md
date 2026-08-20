@@ -52,6 +52,41 @@ existing API style and wiring:
 
 If the user asks for a new endpoint, inspect the current project structure first
 so the implementation follows the established conventions rather than mixing styles.
+
+## Documentation comments
+
+When creating or modifying API code, add comments that explain **purpose and
+responsibility** — not a restatement of obvious syntax.
+
+| Artifact | Document | Format |
+|----------|----------|--------|
+| New endpoint file | Yes, when file groups a resource | One-line header or static class `<summary>` |
+| Request/response DTO | Yes | XML `<summary>` on every public API type |
+| Controller action / handler | Yes | XML `<summary>` describing behavior, auth, and side effects |
+| Middleware / exception handler | Yes | Class `<summary>` describing when it runs |
+| Private helper | Only if non-obvious | Inline `//` for business rules or security rationale |
+
+Guidelines:
+
+- Use XML doc comments (`///`) for types and public members exposed in the API surface.
+- State **what the endpoint or type does**, who may call it, and notable outcomes (201 + Location, 403 permission denied, 409 conflict).
+- Do not comment every property when the name and data annotations are self-explanatory.
+- Do not duplicate OpenAPI metadata in prose when `.WithSummary()`, `[ProducesResponseType]`, and DTO `<summary>` already cover the contract.
+- Match the comment style and language of neighboring files in the same folder.
+
+```csharp
+// Maps identity endpoints: register, login, refresh, revoke, and current user.
+[Route("api/identity")]
+public sealed class IdentityController : ControllerBase { }
+
+/// <summary>Payload for creating a new user account.</summary>
+public sealed record RegisterUserRequest { ... }
+
+/// <summary>Authenticates a user and returns tokens.</summary>
+[HttpPost("login")]
+public async Task<IActionResult> Login(...) { }
+```
+
 ## Workflow
 
 ### Step 1: Determine the API style
@@ -477,6 +512,8 @@ paths (e.g., non-existent IDs). Match the port to `launchSettings.json`.
 - [ ] Minimal API handlers use `TypedResults` with explicit `Results<T1, T2>` return types
 - [ ] Every service has a corresponding interface registered in DI
 - [ ] Exception handlers are placed in the `Middleware/` folder
+- [ ] New/changed files, types, and endpoint actions have purpose comments (`<summary>` or brief file header)
+- [ ] Comments explain responsibility and behavior, not obvious syntax line-by-line
 
 ## Common Pitfalls
 
@@ -495,6 +532,8 @@ paths (e.g., non-existent IDs). Match the port to `launchSettings.json`.
 | Missing XML doc comments on DTOs | Add `<summary>` XML doc comments to every request and response type. These flow into the generated OpenAPI spec automatically. |
 | Using `DateTime` for date/time properties | Use `DateTimeOffset` instead — it preserves UTC offset, avoids timezone ambiguity, and serializes correctly in JSON. |
 | Serializing enums as integers | Configure `JsonStringEnumConverter` so enums serialize as strings by default. Only use integer serialization if the user explicitly requests it. |
+| Missing purpose comments on new API code | Add XML `<summary>` to DTOs, controller actions, and handlers; one-line file header when the file role is not obvious from the name alone. |
+| Over-commenting obvious code | Document purpose, auth, and side effects — skip property-by-property narration when names and annotations are clear. |
 
 ## More Info
 

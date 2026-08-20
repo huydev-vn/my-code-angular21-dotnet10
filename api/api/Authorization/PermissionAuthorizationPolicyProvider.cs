@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Api.Authorization;
 
+/// <summary>Builds JWT permission policies on demand from attribute policy names.</summary>
 internal sealed class PermissionAuthorizationPolicyProvider(
     IOptions<AuthorizationOptions> options) : IAuthorizationPolicyProvider
 {
@@ -18,18 +19,26 @@ internal sealed class PermissionAuthorizationPolicyProvider(
 
     public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
     {
+        if (PermissionPolicies.TryParseUnitPolicy(policyName, out var unitPermission, out var routeKey))
+        {
+            return Task.FromResult<AuthorizationPolicy?>(
+                BuildPolicy(new PermissionRequirement(unitPermission, routeKey)));
+        }
+
         if (policyName.StartsWith(PermissionPolicies.Prefix, StringComparison.Ordinal))
         {
             var permission = policyName[PermissionPolicies.Prefix.Length..];
-            var policy = new AuthorizationPolicyBuilder()
-                .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
-                .RequireAuthenticatedUser()
-                .AddRequirements(new PermissionRequirement(permission))
-                .Build();
-
-            return Task.FromResult<AuthorizationPolicy?>(policy);
+            return Task.FromResult<AuthorizationPolicy?>(
+                BuildPolicy(new PermissionRequirement(permission)));
         }
 
         return _fallback.GetPolicyAsync(policyName);
     }
+
+    private static AuthorizationPolicy BuildPolicy(PermissionRequirement requirement) =>
+        new AuthorizationPolicyBuilder()
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .AddRequirements(requirement)
+            .Build();
 }

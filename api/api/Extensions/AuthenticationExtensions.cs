@@ -114,10 +114,7 @@ internal sealed class HttpCurrentActor(IHttpContextAccessor httpContextAccessor)
                 return null;
             }
 
-            var value = user.FindFirstValue(JwtRegisteredClaimNames.Sub)
-                ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            return Guid.TryParse(value, out var userId) ? userId : null;
+            return user.GetUserId();
         }
     }
 

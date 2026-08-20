@@ -1,0 +1,52 @@
+---
+description: Angular CLI scaffolding, file layout, templates, and skip-tests conventions
+globs: client/**/*.{ts,html,scss,css}
+alwaysApply: false
+---
+
+# Angular Project Rules
+
+- Use Angular CLI to generate Angular artifacts.
+- Use standalone components.
+- Follow Feature-Based Architecture.
+- Feature-specific components, services, guards, pipes, and models must stay inside their feature directory.
+- Do not put feature-specific code into global/shared directories.
+- Use kebab-case for files and folders.
+
+## Component folder structure
+
+- Every page, layout, and non-trivial feature component must have its own directory.
+- Keep the component class, template, styles, and tests together in that directory.
+- Use this structure:
+
+  `feature/pages/component-name/component-name.ts`
+  `feature/pages/component-name/component-name.html`
+  `feature/pages/component-name/component-name.css`
+
+- Every page and layout component must declare both `templateUrl` and `styleUrl`.
+- Use `.css` for component styles (matches global `src/styles.css` and Tailwind setup).
+- Prefer Tailwind utility classes in templates; put component-specific or encapsulation styles in the `.css` file.
+
+- Generate with the component name repeated in the CLI path:
+
+  `ng g c features/example/pages/example-page/example-page --skip-tests`
+
+- Tiny presentational components in `shared/ui` may remain a single pair of files without a nested folder, or stay inline when the template is 10–15 lines or less.
+
+## Scaffolding
+
+- Prefer Angular CLI shorthand commands such as `ng g c`, `ng g s`, `ng g d`, `ng g p`, and `ng g g`.
+- Do not manually create Angular artifacts when an Angular CLI schematic exists.
+- Do not generate test files during scaffolding unless tests are explicitly requested.
+- Always use `--skip-tests` when generating components, services, directives, pipes, guards, interceptors, and resolvers unless tests are explicitly requested.
+- When tests are requested, generate or add the spec intentionally; `--skip-tests` is the scaffold default, not a ban on tests.
+
+## Component templates
+
+- Page components must use external templates with `templateUrl`.
+- Feature and layout components with more than a few lines of markup must use external templates.
+- Inline templates are allowed only for tiny presentational components, typically no more than 10–15 lines (for example `PageHeader`, `EmptyState`, a shell that only hosts `<router-outlet />`).
+- Do not place substantial HTML, forms, lists, or control-flow blocks inside a page TypeScript file.
+- Keep page TypeScript focused on facade bindings, event handlers, and orchestration.
+- Move reusable markup into standalone feature or shared components.
+- Do not use `--inline-template` (`-t`) unless the template is tiny and the request explicitly allows it.

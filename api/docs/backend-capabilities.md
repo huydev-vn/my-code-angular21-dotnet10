@@ -12,7 +12,7 @@ the feature is implemented, configured, and tested.
 | Validation | `FluentValidation`, `FluentValidation.DependencyInjectionExtensions` | Application | Request validation | Extra types per use case | Already referenced |
 | Dapper | `Dapper` | Infrastructure | Profiled SQL that EF cannot express well | Dual data access styles | `dotnet add Infrastructure package Dapper` |
 | Mapster | `Mapster`, `Mapster.DependencyInjection` | Infrastructure or Api | Repeated DTO mapping | Hidden mapping rules | `dotnet add Infrastructure package Mapster` |
-| Serilog | `Serilog.AspNetCore`, `Serilog.Sinks.Console` | Api | Structured logs, enrichers, correlation | Replaces default providers | `dotnet add api package Serilog.AspNetCore` |
+| Serilog | `Serilog.AspNetCore`, `Serilog.Sinks.Console` | Api | Structured logs, enrichers, correlation | Replaces default providers | Already referenced |
 | File logs | `Serilog.Sinks.File` | Api | Local troubleshooting only | Not ideal in containers | `dotnet add api package Serilog.Sinks.File` |
 | Bogus | `Bogus` | Test/seed project | Fake data in tests | Never reference from runtime | `dotnet add Tests package Bogus` |
 | MediatR / CQRS | `MediatR` | Application | Many use cases need a dispatcher | Not required by Clean Architecture | Do not add until orchestration pain is real |

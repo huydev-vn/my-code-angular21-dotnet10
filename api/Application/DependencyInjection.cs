@@ -31,10 +31,13 @@ public static class DependencyInjection
         services.AddScoped<ListUsers>();
 
         services.AddScoped<CreatePermissionDefinition>();
+        services.AddScoped<GetPermissionDefinition>();
         services.AddScoped<ListPermissionDefinitions>();
         services.AddScoped<CreateUserGroup>();
+        services.AddScoped<GetUserGroup>();
         services.AddScoped<ListUserGroups>();
         services.AddScoped<CreateOrganizationUnit>();
+        services.AddScoped<GetOrganizationUnit>();
         services.AddScoped<ListOrganizationUnits>();
         services.AddScoped<AssignGroupPermission>();
         services.AddScoped<AssignUserToGroup>();

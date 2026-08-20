@@ -1,0 +1,47 @@
+<div class="flex min-h-full items-center justify-center bg-slate-50 p-6">
+  <mat-card class="w-full max-w-md shadow-md">
+    @if (authenticating()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+    <mat-card-header>
+      <mat-card-title>
+        <h1 class="text-xl font-medium">Sign in</h1>
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form class="mt-4 flex flex-col gap-2" (submit)="onSubmit($event)">
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" autocomplete="email" [formField]="loginForm.email" />
+          @if (loginForm.email().touched() && loginForm.email().invalid()) {
+            <mat-error>{{ loginForm.email().errors()[0]?.message }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Password</mat-label>
+          <input
+            matInput
+            type="password"
+            autocomplete="current-password"
+            [formField]="loginForm.password"
+          />
+          @if (loginForm.password().touched() && loginForm.password().invalid()) {
+            <mat-error>{{ loginForm.password().errors()[0]?.message }}</mat-error>
+          }
+        </mat-form-field>
+
+        @if (error()) {
+          <p class="text-sm text-red-600">{{ error() }}</p>
+        }
+
+        <button matButton="filled" type="submit" [disabled]="authenticating()">Continue</button>
+      </form>
+
+      <p class="mt-4 text-sm text-slate-600">
+        Need an account?
+        <a routerLink="/auth/register" class="text-blue-700 underline">Create one</a>
+      </p>
+    </mat-card-content>
+  </mat-card>
+</div>

@@ -23,4 +23,8 @@ public static class IdentityErrors
     public static readonly Error UserNotFound = Error.NotFound(
         "identity.user_not_found",
         "User was not found.");
+
+    public static readonly Error RegistrationDisabled = Error.Forbidden(
+        "identity.registration_disabled",
+        "Self-service registration is disabled.");
 }

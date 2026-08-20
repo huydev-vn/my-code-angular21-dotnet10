@@ -1,13 +1,16 @@
 using Application.Common.Results;
+using Application.Common.Settings;
 using Application.Common.Validation;
 using Application.Features.Identity.Abstractions;
 using Application.Features.Identity.Contracts;
+using Application.Features.Identity.Errors;
 using FluentValidation;
 
 namespace Application.Features.Identity.Register;
 
 public sealed class RegisterUser(
     IValidator<RegisterUserRequest> validator,
+    IIdentitySettings identitySettings,
     IUserAccountService userAccountService,
     AuthTokenIssuer tokenIssuer)
 {
@@ -15,6 +18,11 @@ public sealed class RegisterUser(
         RegisterUserRequest request,
         CancellationToken cancellationToken)
     {
+        if (!identitySettings.AllowRegistration)
+        {
+            return Result<AuthResponse>.Failure(IdentityErrors.RegistrationDisabled);
+        }
+
         var validationFailure = (await validator.ValidateAsync(request, cancellationToken))
             .ToFailure<AuthResponse>();
         if (validationFailure is not null)

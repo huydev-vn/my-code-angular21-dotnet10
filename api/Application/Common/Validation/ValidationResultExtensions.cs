@@ -1,6 +1,5 @@
 using Application.Common.Errors;
 using Application.Common.Results;
-using FluentValidation;
 using FluentValidation.Results;
 
 namespace Application.Common.Validation;
@@ -14,11 +13,18 @@ internal static class ValidationResultExtensions
             return null;
         }
 
-        var message = string.Join(
-            " ",
-            validation.Errors.Select(error => error.ErrorMessage));
+        var details = validation.Errors
+            .GroupBy(error => string.IsNullOrWhiteSpace(error.PropertyName)
+                ? "request"
+                : error.PropertyName)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(error => error.ErrorMessage).Distinct().ToArray());
 
-        return Error.Validation("identity.validation", message);
+        return Error.Validation(
+            "validation.failed",
+            "One or more validation errors occurred.",
+            details);
     }
 
     public static Result<T>? ToFailure<T>(this ValidationResult validation)

@@ -1,5 +1,6 @@
 namespace Application.Features.Authorization.Permissions;
 
+/// <summary>Payload for creating a permission catalog entry.</summary>
 public sealed record CreatePermissionDefinitionRequest(
     string Code,
     string Name,

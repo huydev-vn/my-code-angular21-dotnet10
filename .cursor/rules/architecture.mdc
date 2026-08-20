@@ -30,8 +30,13 @@ Rules:
 src/app/
   core/      # singleton services, interceptors, guards, providers
   shared/    # truly reusable UI/utils only
-  layout/    # shell/layout
+  layout/    # shell/layout (one folder per layout component)
   features/  # one folder per feature
+    example/
+      pages/example-page/   # one folder per page component
+      data-access/
+      state/
+      models/
 ```
 
 Rules:

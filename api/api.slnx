@@ -3,5 +3,7 @@
   <Project Path="Application/Application.csproj" />
   <Project Path="Domain/Domain.csproj" />
   <Project Path="Infrastructure/Infrastructure.csproj" />
+  <Project Path="tests/Api.Tests/Api.Tests.csproj" />
+  <Project Path="tests/Application.Tests/Application.Tests.csproj" />
   <Project Path="tests/Domain.Tests/Domain.Tests.csproj" />
 </Solution>

@@ -18,3 +18,34 @@ alwaysApply: false
 - Use `Directory.Build.props` for shared build settings across solution projects.
 - Structured logging only; never log secrets or full PII.
 - After meaningful backend changes, run `dotnet build` and relevant `dotnet test`.
+
+## Documentation comments
+
+When adding or modifying backend code, document **what** and **why** — not a line-by-line restatement of the code.
+
+| Scope | Required | Format |
+|-------|----------|--------|
+| New file | Yes, when role is not obvious from the name | One-line file header comment or type-level `<summary>` on the primary type |
+| Public class/record/interface | Yes | XML `<summary>` describing responsibility |
+| Handler, service, store, controller action | Yes | XML `<summary>` on the type or action method |
+| Private helper / obvious one-liner | No | Skip unless business rule is non-obvious |
+
+Rules:
+
+- Prefer XML doc comments (`///`) for types and public members; use `//` only for short file headers or non-public internals.
+- Summarize **purpose, boundary, and side effects** (e.g. "Persists refresh-token rotation with optimistic concurrency").
+- Do **not** comment every property, parameter, or trivial getter unless the name alone is insufficient.
+- Do **not** duplicate OpenAPI metadata in prose comments when `[ProducesResponseType]` and DTO `<summary>` already cover the contract.
+- Keep comments in English; match the language of existing files in the same folder.
+
+```csharp
+// Issues access/refresh tokens and coordinates refresh-token family rotation.
+public sealed class AuthTokenIssuer(...) { }
+
+/// <summary>Creates a user account when self-service registration is enabled.</summary>
+public sealed class RegisterUser(...) { }
+
+/// <summary>Rotates refresh tokens and issues a new access token.</summary>
+[HttpPost("refresh")]
+public async Task<IActionResult> Refresh(...) { }
+```

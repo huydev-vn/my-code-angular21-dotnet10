@@ -15,5 +15,5 @@ alwaysApply: false
 - `core/` is for app-wide singletons only (auth, interceptors, config).
 - `shared/` only for reuse across 2+ features; no feature-specific code.
 - Keep templates lean; move non-trivial logic into component class or services.
-- Use Angular CLI (`ng generate`) for scaffolding to match project conventions.
+- Scaffold and file layout follow `.cursor/rules/angular-project.mdc` (`ng generate`, one folder per page/layout component, `templateUrl` for pages, `--skip-tests` by default).
 - After meaningful frontend changes, run `ng build` (and tests when touching behavior).

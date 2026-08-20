@@ -1,0 +1,25 @@
+<app-page-header
+  title="Permissions"
+  subtitle="Runtime permission catalog. This list is mocked until the API is connected."
+/>
+
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate" class="mb-4" />
+}
+
+@if (error()) {
+  <p class="mb-4 text-sm text-red-600">{{ error() }}</p>
+}
+
+@if (permissions().length === 0 && !loading()) {
+  <app-empty-state title="No permissions" />
+} @else {
+  <mat-list class="rounded-lg border border-slate-200 bg-white">
+    @for (permission of permissions(); track permission.id) {
+      <mat-list-item>
+        <span matListItemTitle>{{ permission.displayName }}</span>
+        <span matListItemLine>{{ permission.name }}</span>
+      </mat-list-item>
+    }
+  </mat-list>
+}

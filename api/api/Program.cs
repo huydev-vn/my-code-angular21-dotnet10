@@ -3,15 +3,23 @@ using Api.Extensions;
 using Api.Middleware;
 using Api.OpenApi;
 using Application;
+using Application.Common.Settings;
 using Infrastructure;
 using Infrastructure.Authorization;
 using Infrastructure.Identity;
 using Infrastructure.Persistence;
 using Scalar.AspNetCore;
+using Serilog;
 
 const string ClientCorsPolicy = "Client";
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, _, configuration) =>
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("Application", context.HostingEnvironment.ApplicationName));
 
 var connectionString = builder.Configuration.GetConnectionString("Database")
     ?? throw new InvalidOperationException(
@@ -43,30 +51,35 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod()));
 
-builder.Services.AddApiSecurityServices();
+builder.Services.AddApiSecurityServices(builder.Configuration);
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddInfrastructure(builder.Configuration, connectionString);
 builder.Services.AddApiAuthentication(builder.Configuration);
 
 var app = builder.Build();
 
-try
+var identitySettings = app.Services.GetRequiredService<IIdentitySettings>();
+if (identitySettings.RunSeeders)
 {
-    using var scope = app.Services.CreateScope();
-    await IdentitySeeder.SeedAsync(
-        scope.ServiceProvider,
-        app.Configuration,
-        CancellationToken.None);
-    await AuthorizationSeeder.SeedAsync(
-        scope.ServiceProvider,
-        app.Configuration,
-        CancellationToken.None);
-}
-catch (Exception exception) when (app.Environment.IsDevelopment())
-{
-    app.Logger.LogWarning(
-        exception,
-        "Identity or authorization seed skipped because the database is not ready.");
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var stopping = app.Lifetime.ApplicationStopping;
+        await IdentitySeeder.SeedAsync(
+            scope.ServiceProvider,
+            app.Configuration,
+            stopping);
+        await AuthorizationSeeder.SeedAsync(
+            scope.ServiceProvider,
+            app.Configuration,
+            stopping);
+    }
+    catch (Exception exception) when (app.Environment.IsDevelopment())
+    {
+        app.Logger.LogWarning(
+            exception,
+            "Identity or authorization seed skipped because the database is not ready.");
+    }
 }
 
 if (app.Environment.IsDevelopment())
@@ -84,4 +97,13 @@ app.UseApiSecurityPipeline(ClientCorsPolicy);
 app.MapControllers();
 app.MapApiHealthChecks();
 
-app.Run();
+try
+{
+    app.Run();
+}
+finally
+{
+    Log.CloseAndFlush();
+}
+
+public partial class Program;

@@ -14,3 +14,39 @@ alwaysApply: false
 - Auth tokens and credentials stay in `core` HTTP interceptors, not feature services.
 - Prefer typed HttpClient calls; avoid `any` for request/response bodies.
 - Breaking API changes require updating Angular consumers in the same change set when feasible.
+
+## Documentation comments
+
+Document contract intent so frontend and backend stay aligned without reading implementation.
+
+| Scope | Required | Format |
+|-------|----------|--------|
+| API request/response DTO (C#) | Yes | XML `<summary>` on the type; flows into OpenAPI |
+| Controller action / minimal API handler | Yes | XML `<summary>` + HTTP metadata attributes |
+| Angular model mirroring a DTO | Yes | JSDoc `/** ... */` on the type or interface |
+| Feature service / HTTP client method | Yes | JSDoc describing endpoint purpose and error cases |
+| Interceptor / guard | Yes | Brief comment on when it runs and what it enforces |
+
+Rules:
+
+- Describe **contract meaning** (what the payload represents, auth requirement, typical errors) — not field-by-field repetition when names are clear.
+- When a DTO or model name is ambiguous, note which API endpoint or use case it belongs to.
+- Error handling paths (401, 403, 409) should be documented where the client consumes them (service or interceptor), not only on the server.
+- Keep comments in English; match the language of existing files in the same folder.
+
+```csharp
+/// <summary>Payload for rotating refresh tokens.</summary>
+public sealed record RefreshTokensRequest { ... }
+
+/// <summary>Lists users. Requires the users.read permission.</summary>
+[HttpGet("users")]
+public async Task<IActionResult> Users(...) { }
+```
+
+```typescript
+/** Mirrors AuthResponse from POST /api/identity/login. */
+export interface AuthResponse { ... }
+
+/** Calls POST /api/identity/refresh; maps 401 to session-expired handling. */
+loginRefresh(refreshToken: string) { ... }
+```

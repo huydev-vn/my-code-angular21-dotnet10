@@ -89,6 +89,12 @@ Authorization: Bearer {{accessToken}}
 
 ###
 
+### Get permission by id
+GET {{api_HostAddress}}/api/authorization/permissions/{{permissionId}}
+Authorization: Bearer {{accessToken}}
+
+###
+
 ### Create permission (dynamic catalog entry)
 POST {{api_HostAddress}}/api/authorization/permissions
 Authorization: Bearer {{accessToken}}
@@ -105,6 +111,12 @@ Content-Type: application/json
 
 ### List user groups
 GET {{api_HostAddress}}/api/authorization/groups
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Get group by id
+GET {{api_HostAddress}}/api/authorization/groups/{{groupId}}
 Authorization: Bearer {{accessToken}}
 
 ###
@@ -147,6 +159,12 @@ Content-Type: application/json
 
 ### List organization units
 GET {{api_HostAddress}}/api/authorization/organization-units
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Get organization unit by id
+GET {{api_HostAddress}}/api/authorization/organization-units/{{organizationUnitId}}
 Authorization: Bearer {{accessToken}}
 
 ###

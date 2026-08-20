@@ -1,14 +1,15 @@
 using Application.Common.Persistence;
+using Application.Common.Settings;
 using Application.Features.Authorization.Abstractions;
 using Application.Features.Identity.Abstractions;
-using Application.Common.Security;
 using Infrastructure.Authorization;
 using Infrastructure.Identity;
 using Infrastructure.Persistence;
-using Infrastructure.Security;
 using Infrastructure.Time;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Infrastructure;
 
@@ -16,9 +17,15 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
+        IConfiguration configuration,
         string connectionString)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+
+        services.AddOptions<IdentitySettings>()
+            .Bind(configuration.GetSection(IdentitySettings.SectionName));
+        services.AddSingleton<IIdentitySettings>(sp =>
+            sp.GetRequiredService<IOptions<IdentitySettings>>().Value);
 
         services.AddSingleton<Application.Common.Time.IClock, SystemClock>();
         services.AddDbContext<AppDbContext>(options =>
@@ -44,7 +51,6 @@ public static class DependencyInjection
             .AddEntityFrameworkStores<AppDbContext>();
 
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
-        services.AddScoped<ICurrentActor, UnauthenticatedCurrentActor>();
         services.AddScoped<IUserAccountService, UserAccountService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
