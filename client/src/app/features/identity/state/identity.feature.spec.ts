@@ -1,31 +1,29 @@
 import { identityInitialState, identityFeature } from './identity.feature';
 import { IdentityActions } from './identity.actions';
-import type { AuthSession } from '../models/identity.models';
-import { SystemPermissions } from '../models/identity.models';
+import type { CurrentUser } from '../../../core/auth/current-user.model';
+import { SystemPermissions } from '../../../core/auth/system-permissions';
 
-const session: AuthSession = {
-  accessToken: 'token',
-  accessTokenExpiresAt: '2026-01-01T00:15:00.000Z',
-  refreshToken: 'refresh',
-  refreshTokenExpiresAt: '2026-01-15T00:00:00.000Z',
-  user: {
-    id: 'user-1',
-    email: 'admin@local.dev',
-    groups: ['System Administrators'],
-    permissions: [SystemPermissions.UsersRead],
-    accessibleOrganizationUnitIds: [],
-  },
+const user: CurrentUser = {
+  id: 'user-1',
+  email: 'admin@local.dev',
+  groups: ['System Administrators'],
+  permissions: [SystemPermissions.UsersRead],
+  accessibleOrganizationUnitIds: [],
 };
 
 describe('identityFeature reducer', () => {
-  it('starts anonymous', () => {
-    expect(identityInitialState.status).toBe('anonymous');
+  it('starts initializing', () => {
+    expect(identityInitialState.status).toBe('initializing');
     expect(identityInitialState.user).toBeNull();
   });
 
   it('marks authenticating on login', () => {
-    const state = identityFeature.reducer(
+    const anonymous = identityFeature.reducer(
       identityInitialState,
+      IdentityActions.sessionRestoreFailed(),
+    );
+    const state = identityFeature.reducer(
+      anonymous,
       IdentityActions.loginRequested({
         credentials: { email: 'admin@local.dev', password: 'secret123' },
       }),
@@ -35,24 +33,35 @@ describe('identityFeature reducer', () => {
     expect(state.error).toBeNull();
   });
 
-  it('stores the session on success', () => {
+  it('stores the user on success without tokens', () => {
     const state = identityFeature.reducer(
       identityInitialState,
-      IdentityActions.loginSucceeded({ session }),
+      IdentityActions.loginSucceeded({ user }),
     );
 
     expect(state.status).toBe('authenticated');
     expect(state.user?.email).toBe('admin@local.dev');
-    expect(state.accessToken).toBe('token');
+    expect('accessToken' in state).toBe(false);
+  });
+
+  it('restores session on bootstrap success', () => {
+    const state = identityFeature.reducer(
+      identityInitialState,
+      IdentityActions.sessionRestored({ user }),
+    );
+
+    expect(state.status).toBe('authenticated');
+    expect(state.user?.email).toBe('admin@local.dev');
   });
 
   it('clears the session on logout', () => {
     const authenticated = identityFeature.reducer(
       identityInitialState,
-      IdentityActions.loginSucceeded({ session }),
+      IdentityActions.loginSucceeded({ user }),
     );
     const state = identityFeature.reducer(authenticated, IdentityActions.logoutSucceeded());
 
-    expect(state).toEqual(identityInitialState);
+    expect(state.status).toBe('anonymous');
+    expect(state.user).toBeNull();
   });
 });

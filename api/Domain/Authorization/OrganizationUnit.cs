@@ -23,6 +23,7 @@ public sealed class OrganizationUnit
         ParentId = parentId;
         IsActive = true;
         CreatedAt = createdAt;
+        Version = 1;
     }
 
     public Guid Id { get; private set; }
@@ -36,6 +37,9 @@ public sealed class OrganizationUnit
     public bool IsActive { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
+
+    /// <summary>Application-managed optimistic concurrency token.</summary>
+    public int Version { get; private set; }
 
     public static OrganizationUnit CreateRoot(
         string name,
@@ -51,6 +55,8 @@ public sealed class OrganizationUnit
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        EnsureValidParentId(parentId);
+        EnsureValidTimestamp(createdAt);
 
         return new OrganizationUnit(
             Guid.NewGuid(),
@@ -66,11 +72,65 @@ public sealed class OrganizationUnit
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         Name = name.Trim();
         Code = code.Trim().ToUpperInvariant();
+        BumpVersion();
     }
 
-    public void Move(Guid? parentId) => ParentId = parentId;
+    /// <summary>
+    /// Moves this unit under <paramref name="parentId"/>.
+    /// Pass the current parent map so cycle detection can protect the invariant.
+    /// </summary>
+    public void Move(Guid? parentId, IReadOnlyDictionary<Guid, Guid?> parentById)
+    {
+        ArgumentNullException.ThrowIfNull(parentById);
+        EnsureValidParentId(parentId);
 
-    public void Activate() => IsActive = true;
+        if (parentId == Id)
+        {
+            throw new InvalidOperationException(
+                "An organization unit cannot be its own parent.");
+        }
 
-    public void Deactivate() => IsActive = false;
+        if (OrganizationUnitHierarchy.WouldCreateCycle(Id, parentId, parentById))
+        {
+            throw new InvalidOperationException(
+                "Moving the organization unit would create a cycle.");
+        }
+
+        ParentId = parentId;
+        BumpVersion();
+    }
+
+    public void Activate()
+    {
+        IsActive = true;
+        BumpVersion();
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
+        BumpVersion();
+    }
+
+    private void BumpVersion() => Version++;
+
+    private static void EnsureValidParentId(Guid? parentId)
+    {
+        if (parentId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Parent id cannot be an empty GUID.",
+                nameof(parentId));
+        }
+    }
+
+    private static void EnsureValidTimestamp(DateTimeOffset createdAt)
+    {
+        if (createdAt == default)
+        {
+            throw new ArgumentException(
+                "CreatedAt must be a valid timestamp.",
+                nameof(createdAt));
+        }
+    }
 }

@@ -1,4 +1,8 @@
 namespace Application.Features.Identity.Contracts;
 
-/// <summary>Collection of users returned by the identity directory.</summary>
-public sealed record UserListResponse(IReadOnlyList<UserResponse> Items);
+/// <summary>Paged collection of users returned by the identity directory.</summary>
+public sealed record UserListResponse(
+    IReadOnlyList<UserResponse> Items,
+    int TotalCount,
+    int Page,
+    int PageSize);

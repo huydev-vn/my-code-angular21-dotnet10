@@ -1,4 +1,4 @@
-<div class="flex min-h-full items-center justify-center bg-slate-50 p-6">
+<div class="flex min-h-dvh items-center justify-center bg-slate-50 p-6">
   <mat-card class="w-full max-w-md shadow-md">
     @if (authenticating()) {
       <mat-progress-bar mode="indeterminate" />
@@ -32,7 +32,7 @@
         </mat-form-field>
 
         @if (error()) {
-          <p class="text-sm text-red-600">{{ error() }}</p>
+          <p class="text-sm text-red-600" role="alert" aria-live="assertive">{{ error() }}</p>
         }
 
         <button matButton="filled" type="submit" [disabled]="authenticating()">Register</button>

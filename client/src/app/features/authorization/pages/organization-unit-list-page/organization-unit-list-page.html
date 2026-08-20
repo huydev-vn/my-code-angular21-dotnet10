@@ -3,13 +3,13 @@
   subtitle="Nested units used to scope group access. Parent relationships are mocked."
 />
 
-@if (loading()) {
-  <mat-progress-bar mode="indeterminate" class="mb-4" />
-}
-
-@if (organizationUnits().length === 0 && !loading()) {
-  <app-empty-state title="No organization units" />
-} @else {
+<app-request-state
+  [loading]="loading()"
+  [error]="error()"
+  [empty]="organizationUnits().length === 0"
+  emptyTitle="No organization units"
+  (retry)="retry()"
+>
   <mat-list class="rounded-lg border border-slate-200 bg-white">
     @for (unit of organizationUnits(); track unit.id) {
       <mat-list-item>
@@ -18,4 +18,4 @@
       </mat-list-item>
     }
   </mat-list>
-}
+</app-request-state>

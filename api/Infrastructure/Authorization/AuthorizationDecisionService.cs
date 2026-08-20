@@ -138,15 +138,11 @@ internal sealed class AuthorizationDecisionService(AppDbContext dbContext)
         IReadOnlyList<Guid> accessibleUnitIds = [];
         if (scopeRoots.Count > 0)
         {
-            var units = await dbContext.OrganizationUnits
-                .AsNoTracking()
-                .Where(unit => unit.IsActive)
-                .Select(unit => new { unit.Id, unit.ParentId })
-                .ToListAsync(cancellationToken);
-
-            accessibleUnitIds = OrganizationUnitHierarchy.CollectAccessibleIds(
+            accessibleUnitIds = await OrganizationUnitQueries.CollectAccessibleIdsAsync(
+                dbContext,
                 scopeRoots,
-                units.Select(unit => (unit.Id, unit.ParentId)).ToArray());
+                activeOnly: true,
+                cancellationToken);
         }
 
         return new UserAuthorizationContext(

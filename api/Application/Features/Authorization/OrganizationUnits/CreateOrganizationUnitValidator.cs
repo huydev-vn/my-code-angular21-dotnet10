@@ -16,5 +16,9 @@ internal sealed class CreateOrganizationUnitValidator
             .MaximumLength(64)
             .Matches("^[A-Za-z0-9_-]+$")
             .WithMessage("Code may only contain letters, numbers, underscores, and hyphens.");
+
+        RuleFor(request => request.ParentId)
+            .NotEmpty()
+            .When(request => request.ParentId.HasValue);
     }
 }

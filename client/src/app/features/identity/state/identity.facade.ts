@@ -1,12 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { Store } from '@ngrx/store';
 
-import type { LoginRequest, RegisterRequest, SystemPermission } from '../models/identity.models';
+import type { AuthCommandsPort, AuthStatePort } from '../../../core/auth/auth-state.port';
+import type { LoginRequest, RegisterRequest } from '../../../core/auth/current-user.model';
+import type { SystemPermission } from '../../../core/auth/system-permissions';
 import { IdentityActions } from './identity.actions';
 import { identityFeature } from './identity.feature';
 
 @Injectable({ providedIn: 'root' })
-export class IdentityFacade {
+export class IdentityFacade implements AuthStatePort, AuthCommandsPort {
   private readonly store = inject(Store);
 
   readonly user = this.store.selectSignal(identityFeature.selectUser);
@@ -14,20 +16,21 @@ export class IdentityFacade {
   readonly error = this.store.selectSignal(identityFeature.selectError);
   readonly authenticated = this.store.selectSignal(identityFeature.selectAuthenticated);
   readonly authenticating = this.store.selectSignal(identityFeature.selectAuthenticating);
+  readonly initialized = this.store.selectSignal(identityFeature.selectInitialized);
 
-  login(credentials: LoginRequest): void {
-    this.store.dispatch(IdentityActions.loginRequested({ credentials }));
+  login(credentials: LoginRequest, returnUrl?: string | null): void {
+    this.store.dispatch(IdentityActions.loginRequested({ credentials, returnUrl }));
   }
 
-  register(credentials: RegisterRequest): void {
-    this.store.dispatch(IdentityActions.registerRequested({ credentials }));
+  register(credentials: RegisterRequest, returnUrl?: string | null): void {
+    this.store.dispatch(IdentityActions.registerRequested({ credentials, returnUrl }));
   }
 
   logout(): void {
     this.store.dispatch(IdentityActions.logoutRequested());
   }
 
-  hasPermission(permission: string): boolean {
-    return this.user()?.permissions.includes(permission as SystemPermission) ?? false;
+  hasPermission(permission: SystemPermission): boolean {
+    return this.user()?.permissions.includes(permission) ?? false;
   }
 }

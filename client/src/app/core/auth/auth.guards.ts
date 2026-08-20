@@ -1,44 +1,62 @@
-import { inject } from '@angular/core';
+import { inject, Injector } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { Store } from '@ngrx/store';
-import { map, take } from 'rxjs';
+import { filter, map, take } from 'rxjs';
+import { toObservable } from '@angular/core/rxjs-interop';
 
-import { identityFeature } from '../../features/identity/state/identity.feature';
-import type { SystemPermission } from '../../features/identity/models/identity.models';
+import { AUTH_STATE, AuthStatePort } from './auth-state.port';
+import type { SystemPermission } from './system-permissions';
 
-export const authGuard: CanActivateFn = () => {
-  const store = inject(Store);
-  const router = inject(Router);
-
-  return store.select(identityFeature.selectStatus).pipe(
+function waitForInitialized(authState: AuthStatePort, injector: Injector) {
+  return toObservable(authState.initialized, { injector }).pipe(
+    filter((initialized) => initialized),
     take(1),
-    map((status) => status === 'authenticated' || router.createUrlTree(['/auth/login'])),
+    map(() => authState),
+  );
+}
+
+export const authGuard: CanActivateFn = (_route, state) => {
+  const authState = inject(AUTH_STATE);
+  const router = inject(Router);
+  const injector = inject(Injector);
+
+  return waitForInitialized(authState, injector).pipe(
+    map((auth) =>
+      auth.authenticated()
+        ? true
+        : router.createUrlTree(['/auth/login'], {
+            queryParams: { returnUrl: state.url },
+          }),
+    ),
   );
 };
 
 export const guestGuard: CanActivateFn = () => {
-  const store = inject(Store);
+  const authState = inject(AUTH_STATE);
   const router = inject(Router);
+  const injector = inject(Injector);
 
-  return store.select(identityFeature.selectStatus).pipe(
-    take(1),
-    map((status) => status !== 'authenticated' || router.createUrlTree(['/'])),
+  return waitForInitialized(authState, injector).pipe(
+    map((auth) => !auth.authenticated() || router.createUrlTree(['/'])),
   );
 };
 
 export function permissionGuard(permission: SystemPermission): CanActivateFn {
   return () => {
-    const store = inject(Store);
+    const authState = inject(AUTH_STATE);
     const router = inject(Router);
+    const injector = inject(Injector);
 
-    return store.select(identityFeature.selectUser).pipe(
-      take(1),
-      map((user) => {
-        if (user?.permissions.includes(permission)) {
+    return waitForInitialized(authState, injector).pipe(
+      map((auth) => {
+        if (!auth.authenticated()) {
+          return router.createUrlTree(['/auth/login']);
+        }
+
+        if (auth.hasPermission(permission)) {
           return true;
         }
 
-        return router.createUrlTree(['/']);
+        return router.createUrlTree(['/forbidden']);
       }),
     );
   };

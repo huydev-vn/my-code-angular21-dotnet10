@@ -1,3 +1,4 @@
+using Application.Common.Pagination;
 using Application.Common.Results;
 
 namespace Application.Features.Identity.Abstractions;
@@ -16,5 +17,7 @@ public interface IUserAccountService
 
     Task<UserAccount?> FindByIdAsync(Guid userId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<UserAccount>> ListAsync(CancellationToken cancellationToken);
+    Task<PageResult<UserAccount>> ListAsync(
+        PageRequest page,
+        CancellationToken cancellationToken);
 }

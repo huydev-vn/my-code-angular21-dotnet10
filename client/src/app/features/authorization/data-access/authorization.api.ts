@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, delay, of } from 'rxjs';
 
-import { SystemPermissions } from '../../identity/models/identity.models';
+import { SystemPermissions } from '../../../core/auth/system-permissions';
 import type {
   OrganizationUnit,
   PermissionDefinition,

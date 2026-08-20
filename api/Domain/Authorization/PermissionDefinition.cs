@@ -25,6 +25,7 @@ public sealed class PermissionDefinition
         Action = action;
         IsActive = true;
         CreatedAt = createdAt;
+        Version = 1;
     }
 
     public Guid Id { get; private set; }
@@ -41,6 +42,9 @@ public sealed class PermissionDefinition
 
     public DateTimeOffset CreatedAt { get; private set; }
 
+    /// <summary>Application-managed optimistic concurrency token.</summary>
+    public int Version { get; private set; }
+
     public static PermissionDefinition Create(
         string code,
         string name,
@@ -50,6 +54,12 @@ public sealed class PermissionDefinition
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (createdAt == default)
+        {
+            throw new ArgumentException(
+                "CreatedAt must be a valid timestamp.",
+                nameof(createdAt));
+        }
 
         return new PermissionDefinition(
             Guid.NewGuid(),
@@ -66,9 +76,18 @@ public sealed class PermissionDefinition
         Name = name.Trim();
         Module = string.IsNullOrWhiteSpace(module) ? null : module.Trim();
         Action = string.IsNullOrWhiteSpace(action) ? null : action.Trim();
+        Version++;
     }
 
-    public void Activate() => IsActive = true;
+    public void Activate()
+    {
+        IsActive = true;
+        Version++;
+    }
 
-    public void Deactivate() => IsActive = false;
+    public void Deactivate()
+    {
+        IsActive = false;
+        Version++;
+    }
 }

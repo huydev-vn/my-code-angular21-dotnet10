@@ -20,5 +20,9 @@ internal sealed class UserGroupConfiguration : IEntityTypeConfiguration<UserGrou
 
         builder.Property(group => group.Description)
             .HasMaxLength(1024);
+
+        builder.Property(group => group.Version)
+            .IsConcurrencyToken()
+            .HasDefaultValue(1);
     }
 }

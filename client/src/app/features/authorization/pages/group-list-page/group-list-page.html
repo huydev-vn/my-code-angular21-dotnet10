@@ -3,13 +3,13 @@
   subtitle="Business groups that receive permissions and organization-unit scope."
 />
 
-@if (loading()) {
-  <mat-progress-bar mode="indeterminate" class="mb-4" />
-}
-
-@if (groups().length === 0 && !loading()) {
-  <app-empty-state title="No groups" />
-} @else {
+<app-request-state
+  [loading]="loading()"
+  [error]="error()"
+  [empty]="groups().length === 0"
+  emptyTitle="No groups"
+  (retry)="retry()"
+>
   <mat-list class="rounded-lg border border-slate-200 bg-white">
     @for (group of groups(); track group.id) {
       <mat-list-item>
@@ -17,4 +17,4 @@
       </mat-list-item>
     }
   </mat-list>
-}
+</app-request-state>

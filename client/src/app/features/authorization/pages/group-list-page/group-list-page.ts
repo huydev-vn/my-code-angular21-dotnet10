@@ -1,14 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatListModule } from '@angular/material/list';
-import { MatProgressBar } from '@angular/material/progress-bar';
 
-import { EmptyState, PageHeader } from '../../../../shared';
+import { PageHeader, RequestState } from '../../../../shared';
 import { AuthorizationFacade } from '../../state/authorization.facade';
 
 @Component({
   selector: 'app-group-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EmptyState, PageHeader, MatListModule, MatProgressBar],
+  imports: [PageHeader, RequestState, MatListModule],
   templateUrl: './group-list-page.html',
   styleUrl: './group-list-page.css',
 })
@@ -17,4 +16,9 @@ export class GroupListPage {
 
   protected readonly groups = this.authorization.groups;
   protected readonly loading = this.authorization.loading;
+  protected readonly error = this.authorization.error;
+
+  protected retry(): void {
+    this.authorization.reloadCatalog();
+  }
 }

@@ -10,9 +10,16 @@ export class UsersFacade {
 
   readonly users = this.store.selectSignal(usersFeature.selectAll);
   readonly loading = this.store.selectSignal(usersFeature.selectLoading);
+  readonly loaded = this.store.selectSignal(usersFeature.selectLoaded);
   readonly error = this.store.selectSignal(usersFeature.selectError);
 
-  load(): void {
+  loadIfNeeded(): void {
+    if (!this.loaded() && !this.loading()) {
+      this.store.dispatch(UsersActions.loadRequested());
+    }
+  }
+
+  reload(): void {
     this.store.dispatch(UsersActions.loadRequested());
   }
 }

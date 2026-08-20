@@ -22,42 +22,6 @@ namespace Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Domain.Authorization.GroupOrganizationUnit", b =>
-                {
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("OrganizationUnitId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("AssignedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("GroupId", "OrganizationUnitId");
-
-                    b.HasIndex("OrganizationUnitId");
-
-                    b.ToTable("GroupOrganizationUnits", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Authorization.GroupPermission", b =>
-                {
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("PermissionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("AssignedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("GroupId", "PermissionId");
-
-                    b.HasIndex("PermissionId");
-
-                    b.ToTable("GroupPermissions", (string)null);
-                });
-
             modelBuilder.Entity("Domain.Authorization.AuthorizationAuditEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -102,6 +66,42 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("AuthorizationAuditEvents", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Authorization.GroupOrganizationUnit", b =>
+                {
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("GroupId", "OrganizationUnitId");
+
+                    b.HasIndex("OrganizationUnitId");
+
+                    b.ToTable("GroupOrganizationUnits", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Authorization.GroupPermission", b =>
+                {
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PermissionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("GroupId", "PermissionId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.ToTable("GroupPermissions", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Authorization.OrganizationUnit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -126,6 +126,12 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.HasKey("Id");
 
@@ -167,6 +173,12 @@ namespace Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
@@ -195,6 +207,12 @@ namespace Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.HasKey("Id");
 

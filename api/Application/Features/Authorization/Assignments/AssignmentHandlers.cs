@@ -4,6 +4,8 @@ using Application.Common.Time;
 using Application.Common.Validation;
 using Application.Features.Authorization.Abstractions;
 using Application.Features.Authorization.Errors;
+using Application.Features.Identity.Abstractions;
+using Application.Features.Identity.Errors;
 using Domain.Authorization;
 using FluentValidation;
 
@@ -66,6 +68,7 @@ public sealed class AssignGroupPermission(
 
 public sealed class AssignUserToGroup(
     IAuthorizationAdminStore store,
+    IUserAccountService userAccountService,
     IAuthorizationAuditor auditor,
     IUnitOfWork unitOfWork,
     IClock clock,
@@ -85,6 +88,11 @@ public sealed class AssignUserToGroup(
         if (await store.FindGroupByIdAsync(request.GroupId, cancellationToken) is null)
         {
             return Result<Contracts.AssignmentResponse>.Failure(AuthorizationErrors.GroupNotFound);
+        }
+
+        if (await userAccountService.FindByIdAsync(request.UserId, cancellationToken) is null)
+        {
+            return Result<Contracts.AssignmentResponse>.Failure(IdentityErrors.UserNotFound);
         }
 
         if (await store.UserGroupMembershipExistsAsync(

@@ -3,17 +3,14 @@
   subtitle="Directory of accounts in this workspace. Data is mocked until the API is wired."
 />
 
-@if (loading()) {
-  <mat-progress-bar mode="indeterminate" class="mb-4" />
-}
-
-@if (error()) {
-  <p class="mb-4 text-sm text-red-600">{{ error() }}</p>
-}
-
-@if (users().length === 0 && !loading()) {
-  <app-empty-state title="No users yet" description="Users will appear here after they register." />
-} @else {
+<app-request-state
+  [loading]="loading()"
+  [error]="error()"
+  [empty]="users().length === 0"
+  emptyTitle="No users yet"
+  emptyDescription="Users will appear here after they register."
+  (retry)="retry()"
+>
   <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
     <table mat-table [dataSource]="users()">
       <ng-container matColumnDef="email">
@@ -30,4 +27,4 @@
       <tr mat-row *matRowDef="let row; columns: columns"></tr>
     </table>
   </div>
-}
+</app-request-state>

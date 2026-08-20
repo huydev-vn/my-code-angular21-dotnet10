@@ -29,6 +29,30 @@ public sealed class GroupOrganizationUnit
     public static GroupOrganizationUnit Create(
         Guid groupId,
         Guid organizationUnitId,
-        DateTimeOffset assignedAt) =>
-        new(groupId, organizationUnitId, assignedAt);
+        DateTimeOffset assignedAt)
+    {
+        EnsureNonEmpty(groupId, nameof(groupId));
+        EnsureNonEmpty(organizationUnitId, nameof(organizationUnitId));
+        EnsureValidTimestamp(assignedAt);
+
+        return new GroupOrganizationUnit(groupId, organizationUnitId, assignedAt);
+    }
+
+    private static void EnsureNonEmpty(Guid value, string paramName)
+    {
+        if (value == Guid.Empty)
+        {
+            throw new ArgumentException("Id cannot be an empty GUID.", paramName);
+        }
+    }
+
+    private static void EnsureValidTimestamp(DateTimeOffset assignedAt)
+    {
+        if (assignedAt == default)
+        {
+            throw new ArgumentException(
+                "AssignedAt must be a valid timestamp.",
+                nameof(assignedAt));
+        }
+    }
 }

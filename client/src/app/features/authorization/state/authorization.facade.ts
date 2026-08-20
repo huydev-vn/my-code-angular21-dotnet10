@@ -14,9 +14,16 @@ export class AuthorizationFacade {
     authorizationFeature.selectOrganizationUnits,
   );
   readonly loading = this.store.selectSignal(authorizationFeature.selectLoading);
+  readonly loaded = this.store.selectSignal(authorizationFeature.selectLoaded);
   readonly error = this.store.selectSignal(authorizationFeature.selectError);
 
-  loadCatalog(): void {
+  loadCatalogIfNeeded(): void {
+    if (!this.loaded() && !this.loading()) {
+      this.store.dispatch(AuthorizationActions.loadCatalogRequested());
+    }
+  }
+
+  reloadCatalog(): void {
     this.store.dispatch(AuthorizationActions.loadCatalogRequested());
   }
 }

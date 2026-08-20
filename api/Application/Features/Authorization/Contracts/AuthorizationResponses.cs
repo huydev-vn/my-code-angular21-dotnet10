@@ -10,9 +10,12 @@ public sealed record PermissionDefinitionResponse(
     bool IsActive,
     DateTimeOffset CreatedAt);
 
-/// <summary>Paged-ready list of permission catalog entries.</summary>
+/// <summary>Paged list of permission catalog entries.</summary>
 public sealed record PermissionDefinitionListResponse(
-    IReadOnlyList<PermissionDefinitionResponse> Items);
+    IReadOnlyList<PermissionDefinitionResponse> Items,
+    int TotalCount,
+    int Page,
+    int PageSize);
 
 /// <summary>A business user group used to assign permissions.</summary>
 public sealed record UserGroupResponse(
@@ -22,9 +25,12 @@ public sealed record UserGroupResponse(
     bool IsActive,
     DateTimeOffset CreatedAt);
 
-/// <summary>List of user groups.</summary>
+/// <summary>Paged list of user groups.</summary>
 public sealed record UserGroupListResponse(
-    IReadOnlyList<UserGroupResponse> Items);
+    IReadOnlyList<UserGroupResponse> Items,
+    int TotalCount,
+    int Page,
+    int PageSize);
 
 /// <summary>An organization unit in the nested scope tree.</summary>
 public sealed record OrganizationUnitResponse(
@@ -35,9 +41,12 @@ public sealed record OrganizationUnitResponse(
     bool IsActive,
     DateTimeOffset CreatedAt);
 
-/// <summary>List of organization units.</summary>
+/// <summary>Paged list of organization units.</summary>
 public sealed record OrganizationUnitListResponse(
-    IReadOnlyList<OrganizationUnitResponse> Items);
+    IReadOnlyList<OrganizationUnitResponse> Items,
+    int TotalCount,
+    int Page,
+    int PageSize);
 
 /// <summary>Resolved authorization context for the current user.</summary>
 public sealed record UserAuthorizationContextResponse(

@@ -18,6 +18,7 @@ public sealed class UserGroup
         Description = description;
         IsActive = true;
         CreatedAt = createdAt;
+        Version = 1;
     }
 
     public Guid Id { get; private set; }
@@ -30,12 +31,21 @@ public sealed class UserGroup
 
     public DateTimeOffset CreatedAt { get; private set; }
 
+    /// <summary>Application-managed optimistic concurrency token.</summary>
+    public int Version { get; private set; }
+
     public static UserGroup Create(
         string name,
         string? description,
         DateTimeOffset createdAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (createdAt == default)
+        {
+            throw new ArgumentException(
+                "CreatedAt must be a valid timestamp.",
+                nameof(createdAt));
+        }
 
         return new UserGroup(
             Guid.NewGuid(),
@@ -49,9 +59,18 @@ public sealed class UserGroup
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Name = name.Trim();
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        Version++;
     }
 
-    public void Activate() => IsActive = true;
+    public void Activate()
+    {
+        IsActive = true;
+        Version++;
+    }
 
-    public void Deactivate() => IsActive = false;
+    public void Deactivate()
+    {
+        IsActive = false;
+        Version++;
+    }
 }

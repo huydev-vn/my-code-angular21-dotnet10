@@ -1,3 +1,4 @@
+using Application.Common.Pagination;
 using Application.Features.Authorization.Abstractions;
 using Domain.Authorization;
 using Infrastructure.Persistence;
@@ -23,12 +24,24 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
                 permission => permission.Code == code,
                 cancellationToken);
 
-    public async Task<IReadOnlyList<PermissionDefinition>> ListPermissionsAsync(
-        CancellationToken cancellationToken) =>
-        await dbContext.PermissionDefinitions
-            .AsNoTracking()
+    public async Task<PageResult<PermissionDefinition>> ListPermissionsAsync(
+        PageRequest page,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.PermissionDefinitions.AsNoTracking();
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
             .OrderBy(permission => permission.Code)
+            .Skip(page.Skip)
+            .Take(page.PageSize)
             .ToListAsync(cancellationToken);
+
+        return new PageResult<PermissionDefinition>(
+            items,
+            totalCount,
+            page.Page,
+            page.PageSize);
+    }
 
     public Task AddPermissionAsync(
         PermissionDefinition permission,
@@ -53,12 +66,20 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
             .AsNoTracking()
             .FirstOrDefaultAsync(group => group.Name == name, cancellationToken);
 
-    public async Task<IReadOnlyList<UserGroup>> ListGroupsAsync(
-        CancellationToken cancellationToken) =>
-        await dbContext.UserGroups
-            .AsNoTracking()
+    public async Task<PageResult<UserGroup>> ListGroupsAsync(
+        PageRequest page,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.UserGroups.AsNoTracking();
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
             .OrderBy(group => group.Name)
+            .Skip(page.Skip)
+            .Take(page.PageSize)
             .ToListAsync(cancellationToken);
+
+        return new PageResult<UserGroup>(items, totalCount, page.Page, page.PageSize);
+    }
 
     public Task AddGroupAsync(UserGroup group, CancellationToken cancellationToken)
     {
@@ -81,12 +102,24 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
             .AsNoTracking()
             .FirstOrDefaultAsync(unit => unit.Code == code, cancellationToken);
 
-    public async Task<IReadOnlyList<OrganizationUnit>> ListOrganizationUnitsAsync(
-        CancellationToken cancellationToken) =>
-        await dbContext.OrganizationUnits
-            .AsNoTracking()
+    public async Task<PageResult<OrganizationUnit>> ListOrganizationUnitsAsync(
+        PageRequest page,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.OrganizationUnits.AsNoTracking();
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
             .OrderBy(unit => unit.Name)
+            .Skip(page.Skip)
+            .Take(page.PageSize)
             .ToListAsync(cancellationToken);
+
+        return new PageResult<OrganizationUnit>(
+            items,
+            totalCount,
+            page.Page,
+            page.PageSize);
+    }
 
     public Task AddOrganizationUnitAsync(
         OrganizationUnit unit,
@@ -160,34 +193,52 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
         return Task.CompletedTask;
     }
 
-    public async Task<IReadOnlyList<Guid>> GetDescendantOrganizationUnitIdsAsync(
+    public Task<IReadOnlyList<Guid>> GetDescendantOrganizationUnitIdsAsync(
         Guid rootOrganizationUnitId,
-        CancellationToken cancellationToken)
-    {
-        var units = await dbContext.OrganizationUnits
-            .AsNoTracking()
-            .Select(unit => new { unit.Id, unit.ParentId })
-            .ToListAsync(cancellationToken);
-
-        return OrganizationUnitHierarchy.CollectAccessibleIds(
+        CancellationToken cancellationToken) =>
+        OrganizationUnitQueries.CollectAccessibleIdsAsync(
+            dbContext,
             [rootOrganizationUnitId],
-            units.Select(unit => (unit.Id, unit.ParentId)).ToArray());
-    }
+            activeOnly: false,
+            cancellationToken);
 
     public async Task<bool> WouldCreateOrganizationUnitCycleAsync(
         Guid organizationUnitId,
         Guid? newParentId,
         CancellationToken cancellationToken)
     {
-        var units = await dbContext.OrganizationUnits
-            .AsNoTracking()
-            .Select(unit => new { unit.Id, unit.ParentId })
-            .ToListAsync(cancellationToken);
+        if (newParentId is null)
+        {
+            return false;
+        }
 
-        var parentById = units.ToDictionary(unit => unit.Id, unit => unit.ParentId);
-        return OrganizationUnitHierarchy.WouldCreateCycle(
-            organizationUnitId,
-            newParentId,
-            parentById);
+        if (newParentId.Value == organizationUnitId)
+        {
+            return true;
+        }
+
+        // Only walk the ancestor chain of the proposed parent — not the full tree.
+        var current = newParentId;
+        var guard = 0;
+        while (current is Guid parentId)
+        {
+            if (parentId == organizationUnitId)
+            {
+                return true;
+            }
+
+            current = await dbContext.OrganizationUnits
+                .AsNoTracking()
+                .Where(unit => unit.Id == parentId)
+                .Select(unit => unit.ParentId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (++guard > 10_000)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

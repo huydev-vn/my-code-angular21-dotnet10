@@ -28,5 +28,9 @@ internal sealed class PermissionDefinitionConfiguration
 
         builder.Property(permission => permission.Action)
             .HasMaxLength(128);
+
+        builder.Property(permission => permission.Version)
+            .IsConcurrencyToken()
+            .HasDefaultValue(1);
     }
 }

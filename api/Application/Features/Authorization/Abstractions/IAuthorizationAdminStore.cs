@@ -1,3 +1,4 @@
+using Application.Common.Pagination;
 using Domain.Authorization;
 
 namespace Application.Features.Authorization.Abstractions;
@@ -12,7 +13,8 @@ public interface IAuthorizationAdminStore
         string code,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<PermissionDefinition>> ListPermissionsAsync(
+    Task<PageResult<PermissionDefinition>> ListPermissionsAsync(
+        PageRequest page,
         CancellationToken cancellationToken);
 
     Task AddPermissionAsync(
@@ -27,7 +29,8 @@ public interface IAuthorizationAdminStore
         string name,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<UserGroup>> ListGroupsAsync(
+    Task<PageResult<UserGroup>> ListGroupsAsync(
+        PageRequest page,
         CancellationToken cancellationToken);
 
     Task AddGroupAsync(UserGroup group, CancellationToken cancellationToken);
@@ -40,7 +43,8 @@ public interface IAuthorizationAdminStore
         string code,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<OrganizationUnit>> ListOrganizationUnitsAsync(
+    Task<PageResult<OrganizationUnit>> ListOrganizationUnitsAsync(
+        PageRequest page,
         CancellationToken cancellationToken);
 
     Task AddOrganizationUnitAsync(

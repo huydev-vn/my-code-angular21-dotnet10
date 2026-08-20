@@ -1,5 +1,6 @@
 using Api.Authorization;
 using Api.Extensions;
+using Application.Common.Pagination;
 using Application.Features.Authorization.Assignments;
 using Application.Features.Authorization.Contracts;
 using Application.Features.Authorization.GetContext;
@@ -35,8 +36,13 @@ public sealed class AuthorizationController(
     [RequirePermission(SystemPermissions.AuthorizationPermissionsRead)]
     [HttpGet("permissions")]
     [ProducesResponseType(typeof(PermissionDefinitionListResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListPermissions(CancellationToken cancellationToken) =>
-        Ok(await listPermissionDefinitions.HandleAsync(cancellationToken));
+    public async Task<IActionResult> ListPermissions(
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        CancellationToken cancellationToken) =>
+        Ok(await listPermissionDefinitions.HandleAsync(
+            PageRequest.Create(page, pageSize),
+            cancellationToken));
 
     /// <summary>Returns one permission. Requires authorization.permissions.read.</summary>
     [RequirePermission(SystemPermissions.AuthorizationPermissionsRead)]
@@ -69,8 +75,13 @@ public sealed class AuthorizationController(
     [RequirePermission(SystemPermissions.AuthorizationGroupsRead)]
     [HttpGet("groups")]
     [ProducesResponseType(typeof(UserGroupListResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListGroups(CancellationToken cancellationToken) =>
-        Ok(await listUserGroups.HandleAsync(cancellationToken));
+    public async Task<IActionResult> ListGroups(
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        CancellationToken cancellationToken) =>
+        Ok(await listUserGroups.HandleAsync(
+            PageRequest.Create(page, pageSize),
+            cancellationToken));
 
     /// <summary>Returns one user group. Requires authorization.groups.read.</summary>
     [RequirePermission(SystemPermissions.AuthorizationGroupsRead)]
@@ -104,8 +115,12 @@ public sealed class AuthorizationController(
     [HttpGet("organization-units")]
     [ProducesResponseType(typeof(OrganizationUnitListResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListOrganizationUnits(
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
         CancellationToken cancellationToken) =>
-        Ok(await listOrganizationUnits.HandleAsync(cancellationToken));
+        Ok(await listOrganizationUnits.HandleAsync(
+            PageRequest.Create(page, pageSize),
+            cancellationToken));
 
     /// <summary>Returns one organization unit. Requires authorization.organization-units.read.</summary>
     [RequirePermission(SystemPermissions.AuthorizationOrganizationUnitsRead)]

@@ -14,6 +14,12 @@ internal static class DbUpdateConflict
         {
             return await dbContext.SaveChangesAsync(cancellationToken);
         }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new PersistenceConflictException(
+                "The resource was modified by another request.",
+                exception);
+        }
         catch (DbUpdateException exception) when (IsUniqueViolation(exception))
         {
             throw new PersistenceConflictException(

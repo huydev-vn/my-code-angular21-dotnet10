@@ -1,13 +1,21 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  DestroyRef,
+} from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatListItem, MatListItemIcon, MatListItemTitle, MatNavList } from '@angular/material/list';
 import { MatSidenav, MatSidenavContainer, MatSidenavContent } from '@angular/material/sidenav';
 import { MatToolbar } from '@angular/material/toolbar';
+import { filter, map } from 'rxjs';
 
-import { IdentityFacade } from '../../features/identity/state/identity.facade';
-import { SystemPermissions } from '../../features/identity/models/identity.models';
+import { AUTH_COMMANDS, AUTH_STATE, SystemPermissions } from '../../core';
 import { UiFacade } from '../../core/store/ui/ui.facade';
 
 interface NavItem {
@@ -44,10 +52,19 @@ interface NavItem {
 })
 export class Shell {
   private readonly ui = inject(UiFacade);
-  private readonly identity = inject(IdentityFacade);
+  private readonly authState = inject(AUTH_STATE);
+  private readonly authCommands = inject(AUTH_COMMANDS);
+  private readonly breakpointObserver = inject(BreakpointObserver);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly sidenavOpened = this.ui.sidenavOpened;
-  protected readonly user = this.identity.user;
+  protected readonly user = this.authState.user;
+  protected readonly isHandset = toSignal(
+    this.breakpointObserver.observe('(max-width: 768px)').pipe(map((result) => result.matches)),
+    { initialValue: false },
+  );
+  protected readonly sidenavMode = computed(() => (this.isHandset() ? 'over' : 'side'));
 
   private readonly navItems: readonly NavItem[] = [
     { label: 'Home', icon: 'home', path: '/' },
@@ -77,18 +94,30 @@ export class Shell {
     },
   ];
 
-  protected readonly visibleNav = computed(() => {
-    this.user();
-    return this.navItems.filter(
-      (item) => !item.permission || this.identity.hasPermission(item.permission),
-    );
-  });
+  protected readonly visibleNav = computed(() =>
+    this.navItems.filter(
+      (item) => !item.permission || this.authState.hasPermission(item.permission as never),
+    ),
+  );
+
+  constructor() {
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => {
+        if (this.isHandset()) {
+          this.ui.closeSidenav();
+        }
+      });
+  }
 
   protected toggleSidenav(): void {
     this.ui.toggleSidenav();
   }
 
   protected logout(): void {
-    this.identity.logout();
+    this.authCommands.logout();
   }
 }

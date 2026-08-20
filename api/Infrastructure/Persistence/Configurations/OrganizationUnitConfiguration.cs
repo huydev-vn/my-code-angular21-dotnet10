@@ -26,5 +26,9 @@ internal sealed class OrganizationUnitConfiguration : IEntityTypeConfiguration<O
             .WithMany()
             .HasForeignKey(unit => unit.ParentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(unit => unit.Version)
+            .IsConcurrencyToken()
+            .HasDefaultValue(1);
     }
 }

@@ -1,5 +1,8 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { Store } from '@ngrx/store';
+
+import { IdentityActions } from './features/identity/state/identity.actions';
 
 @Component({
   selector: 'app-root',
@@ -10,4 +13,10 @@ import { RouterOutlet } from '@angular/router';
     class: 'block h-full',
   },
 })
-export class App {}
+export class App implements OnInit {
+  private readonly store = inject(Store);
+
+  ngOnInit(): void {
+    this.store.dispatch(IdentityActions.appStarted());
+  }
+}

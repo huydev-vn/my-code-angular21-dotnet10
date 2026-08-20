@@ -3,6 +3,8 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideRouter } from '@angular/router';
 
 import { APP_CONFIG, appConfigValue, provideAppHttp, provideAppStore } from './core';
+import { provideIdentityAuth } from './features/identity/provide-identity-auth';
+import { provideIdentityUnauthorizedHandler } from './features/identity/provide-identity-unauthorized-handler';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -12,6 +14,8 @@ export const appConfig: ApplicationConfig = {
     provideAnimationsAsync(),
     provideAppHttp(),
     provideAppStore(),
+    provideIdentityAuth(),
+    provideIdentityUnauthorizedHandler(),
     { provide: APP_CONFIG, useValue: appConfigValue },
   ],
 };

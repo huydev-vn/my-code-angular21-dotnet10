@@ -10,6 +10,13 @@ export const routes: Routes = [
       import('./features/identity/identity.routes').then((module) => module.identityRoutes),
   },
   {
+    path: 'forbidden',
+    loadComponent: () =>
+      import('./features/errors/pages/forbidden-page/forbidden-page').then(
+        (module) => module.ForbiddenPage,
+      ),
+  },
+  {
     path: '',
     component: Shell,
     canActivate: [authGuard],
@@ -33,5 +40,11 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: '' },
+  {
+    path: '**',
+    loadComponent: () =>
+      import('./features/errors/pages/not-found-page/not-found-page').then(
+        (module) => module.NotFoundPage,
+      ),
+  },
 ];

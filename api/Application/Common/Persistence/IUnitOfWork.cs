@@ -8,4 +8,16 @@ namespace Application.Common.Persistence;
 public interface IUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Starts a database transaction for the current request scope.
+    /// Dispose without committing to roll back.
+    /// </summary>
+    Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>Ambient unit-of-work transaction for multi-step use cases.</summary>
+public interface IUnitOfWorkTransaction : IAsyncDisposable
+{
+    Task CommitAsync(CancellationToken cancellationToken);
 }

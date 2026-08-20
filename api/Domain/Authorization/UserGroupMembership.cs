@@ -23,6 +23,30 @@ public sealed class UserGroupMembership
     public static UserGroupMembership Create(
         Guid userId,
         Guid groupId,
-        DateTimeOffset assignedAt) =>
-        new(userId, groupId, assignedAt);
+        DateTimeOffset assignedAt)
+    {
+        EnsureNonEmpty(userId, nameof(userId));
+        EnsureNonEmpty(groupId, nameof(groupId));
+        EnsureValidTimestamp(assignedAt);
+
+        return new UserGroupMembership(userId, groupId, assignedAt);
+    }
+
+    private static void EnsureNonEmpty(Guid value, string paramName)
+    {
+        if (value == Guid.Empty)
+        {
+            throw new ArgumentException("Id cannot be an empty GUID.", paramName);
+        }
+    }
+
+    private static void EnsureValidTimestamp(DateTimeOffset assignedAt)
+    {
+        if (assignedAt == default)
+        {
+            throw new ArgumentException(
+                "AssignedAt must be a valid timestamp.",
+                nameof(assignedAt));
+        }
+    }
 }

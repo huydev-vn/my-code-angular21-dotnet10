@@ -23,6 +23,30 @@ public sealed class GroupPermission
     public static GroupPermission Create(
         Guid groupId,
         Guid permissionId,
-        DateTimeOffset assignedAt) =>
-        new(groupId, permissionId, assignedAt);
+        DateTimeOffset assignedAt)
+    {
+        EnsureNonEmpty(groupId, nameof(groupId));
+        EnsureNonEmpty(permissionId, nameof(permissionId));
+        EnsureValidTimestamp(assignedAt);
+
+        return new GroupPermission(groupId, permissionId, assignedAt);
+    }
+
+    private static void EnsureNonEmpty(Guid value, string paramName)
+    {
+        if (value == Guid.Empty)
+        {
+            throw new ArgumentException("Id cannot be an empty GUID.", paramName);
+        }
+    }
+
+    private static void EnsureValidTimestamp(DateTimeOffset assignedAt)
+    {
+        if (assignedAt == default)
+        {
+            throw new ArgumentException(
+                "AssignedAt must be a valid timestamp.",
+                nameof(assignedAt));
+        }
+    }
 }

@@ -9,6 +9,18 @@ import { identityFeature } from '../../features/identity/state/identity.feature'
 import { uiFeature } from './ui/ui.feature';
 
 export function provideAppStore() {
+  const devtools = isDevMode()
+    ? [
+        provideStoreDevtools({
+          maxAge: 25,
+          logOnly: false,
+          autoPause: true,
+          trace: false,
+          connectInZone: true,
+        }),
+      ]
+    : [];
+
   return makeEnvironmentProviders([
     provideStore({
       router: routerReducer,
@@ -17,12 +29,6 @@ export function provideAppStore() {
     provideState(identityFeature),
     provideEffects(IdentityEffects),
     provideRouterStore(),
-    provideStoreDevtools({
-      maxAge: 25,
-      logOnly: !isDevMode(),
-      autoPause: true,
-      trace: false,
-      connectInZone: true,
-    }),
+    ...devtools,
   ]);
 }

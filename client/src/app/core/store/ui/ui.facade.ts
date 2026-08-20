@@ -13,4 +13,12 @@ export class UiFacade {
   toggleSidenav(): void {
     this.store.dispatch(UiActions.toggleSidenav());
   }
+
+  openSidenav(): void {
+    this.store.dispatch(UiActions.openSidenav());
+  }
+
+  closeSidenav(): void {
+    this.store.dispatch(UiActions.closeSidenav());
+  }
 }

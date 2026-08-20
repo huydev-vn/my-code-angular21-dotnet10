@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { email, form, FormField, required, submit } from '@angular/forms/signals';
 import { MatButton } from '@angular/material/button';
 import { MatCard, MatCardContent, MatCardHeader, MatCardTitle } from '@angular/material/card';
@@ -28,12 +28,17 @@ import { IdentityFacade } from '../../state/identity.facade';
   ],
   templateUrl: './login-page.html',
   styleUrl: './login-page.css',
+  host: {
+    class: 'block h-full min-h-dvh',
+  },
 })
 export class LoginPage {
   private readonly identity = inject(IdentityFacade);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly authenticating = this.identity.authenticating;
   protected readonly error = this.identity.error;
+  protected readonly returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
 
   private readonly model = signal({
     email: '',
@@ -50,7 +55,7 @@ export class LoginPage {
     event.preventDefault();
 
     void submit(this.loginForm, async () => {
-      this.identity.login(this.model());
+      this.identity.login(this.model(), this.returnUrl);
     });
   }
 }

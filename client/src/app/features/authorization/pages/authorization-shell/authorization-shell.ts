@@ -14,6 +14,6 @@ export class AuthorizationShell implements OnInit {
   private readonly authorization = inject(AuthorizationFacade);
 
   ngOnInit(): void {
-    this.authorization.loadCatalog();
+    this.authorization.loadCatalogIfNeeded();
   }
 }

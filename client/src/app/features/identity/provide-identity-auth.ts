@@ -1,0 +1,30 @@
+import { makeEnvironmentProviders } from '@angular/core';
+
+import { AUTH_PORT } from '../../core/auth/auth.port';
+import { AUTH_COMMANDS, AUTH_STATE } from '../../core/auth/auth-state.port';
+import { APP_CONFIG, type AppConfig } from '../../core/config/app-config';
+import { IdentityHttpAdapter } from './data-access/identity-http.adapter';
+import { IdentityMockAdapter } from './data-access/identity-mock.adapter';
+import { IdentityFacade } from './state/identity.facade';
+
+function provideAuthPort() {
+  return {
+    provide: AUTH_PORT,
+    deps: [APP_CONFIG, IdentityMockAdapter, IdentityHttpAdapter],
+    useFactory: (
+      config: AppConfig,
+      mockAdapter: IdentityMockAdapter,
+      httpAdapter: IdentityHttpAdapter,
+    ) => (config.useMockAuth ? mockAdapter : httpAdapter),
+  };
+}
+
+export function provideIdentityAuth() {
+  return makeEnvironmentProviders([
+    IdentityMockAdapter,
+    IdentityHttpAdapter,
+    provideAuthPort(),
+    { provide: AUTH_STATE, useExisting: IdentityFacade },
+    { provide: AUTH_COMMANDS, useExisting: IdentityFacade },
+  ]);
+}

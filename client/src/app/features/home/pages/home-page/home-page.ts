@@ -2,8 +2,8 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatCard, MatCardContent, MatCardHeader, MatCardTitle } from '@angular/material/card';
 
-import { IdentityFacade } from '../../../identity/state/identity.facade';
-import { PageHeader } from '../../../../shared';
+import { AUTH_STATE } from '@core';
+import { PageHeader } from '@shared';
 
 @Component({
   selector: 'app-home-page',
@@ -13,7 +13,7 @@ import { PageHeader } from '../../../../shared';
   styleUrl: './home-page.css',
 })
 export class HomePage {
-  private readonly identity = inject(IdentityFacade);
+  private readonly authState = inject(AUTH_STATE);
 
-  protected readonly user = this.identity.user;
+  protected readonly user = this.authState.user;
 }

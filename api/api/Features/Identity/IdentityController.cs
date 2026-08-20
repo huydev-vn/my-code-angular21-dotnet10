@@ -1,5 +1,6 @@
 using Api.Authorization;
 using Api.Extensions;
+using Application.Common.Pagination;
 using Application.Features.Identity.Contracts;
 using Application.Features.Identity.GetCurrentUser;
 using Application.Features.Identity.ListUsers;
@@ -114,9 +115,14 @@ public sealed class IdentityController(
     [ProducesResponseType(typeof(UserListResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> Users(CancellationToken cancellationToken)
+    public async Task<IActionResult> Users(
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        CancellationToken cancellationToken)
     {
-        var result = await listUsers.HandleAsync(cancellationToken);
+        var result = await listUsers.HandleAsync(
+            PageRequest.Create(page, pageSize),
+            cancellationToken);
         return Ok(result);
     }
 }
