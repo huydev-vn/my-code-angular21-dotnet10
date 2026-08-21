@@ -1,6 +1,6 @@
 <app-page-header
   title="Organization units"
-  subtitle="Nested units used to scope group access. Parent relationships are mocked."
+  subtitle="Nested units used to scope group access."
 />
 
 <app-request-state
@@ -14,8 +14,18 @@
     @for (unit of organizationUnits(); track unit.id) {
       <mat-list-item>
         <span matListItemTitle>{{ unit.name }}</span>
-        <span matListItemLine>{{ unit.parentId ? 'Child unit' : 'Root unit' }}</span>
+        <span matListItemLine>
+          {{ unit.code }} · {{ unit.parentId ? 'Child unit' : 'Root unit' }}
+        </span>
       </mat-list-item>
     }
   </mat-list>
+
+  <app-page-pager
+    [totalCount]="totalCount()"
+    [page]="page()"
+    [pageSize]="pageSize()"
+    [disabled]="loading()"
+    (pageChange)="onPageChange($event)"
+  />
 </app-request-state>

@@ -49,11 +49,15 @@ builder.Services.AddCors(options =>
         policy => policy
             .WithOrigins(clientOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod()));
+            .AllowAnyMethod()
+            .AllowCredentials()));
 
 builder.Services.AddApiSecurityServices(builder.Configuration);
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration, connectionString);
+builder.Services.AddInfrastructure(
+    builder.Configuration,
+    connectionString,
+    builder.Environment.IsDevelopment());
 builder.Services.AddApiAuthentication(builder.Configuration);
 
 var app = builder.Build();
@@ -107,3 +111,4 @@ finally
 }
 
 public partial class Program;
+

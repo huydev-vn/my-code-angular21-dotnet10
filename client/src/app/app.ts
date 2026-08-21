@@ -1,8 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { Store } from '@ngrx/store';
 
-import { IdentityActions } from './features/identity/state/identity.actions';
+import { AUTH_COMMANDS } from './core/auth/auth-state.port';
 
 @Component({
   selector: 'app-root',
@@ -14,9 +13,9 @@ import { IdentityActions } from './features/identity/state/identity.actions';
   },
 })
 export class App implements OnInit {
-  private readonly store = inject(Store);
+  private readonly authCommands = inject(AUTH_COMMANDS);
 
   ngOnInit(): void {
-    this.store.dispatch(IdentityActions.appStarted());
+    this.authCommands.bootstrap();
   }
 }

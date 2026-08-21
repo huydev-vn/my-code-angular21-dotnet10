@@ -18,6 +18,7 @@ Dependency direction:
 - `layout` may depend on `core` and `shared`
 - `core` must not depend on feature implementations
 - features must not deep-import other features; use public `index.ts` exports when needed
+- shared auth contracts (`SystemPermissions`, `AUTH_STATE`, `AUTH_COMMANDS`) live in `core`
 
 ## State management
 
@@ -33,32 +34,59 @@ Use the lightest tool that fits:
 Rules:
 
 - Feature state is route-scoped when possible (`provideState` on feature routes)
+- Identity session state is registered by `provideIdentityAuth()`, not by `core`
 - Facades expose selectors/actions to components; pages should not dispatch raw store actions
-- Do not add Entity/Effects for a feature that only needs a simple list load unless pagination, caching, or shared consumers justify it
+- List features use shared `ListState<T>` / `PagedQueryState` helpers from `core/store/list-state`
+- List load effects use `switchMap` so newer page requests cancel stale in-flight ones
 - Components stay OnPush and read auth/UI through ports or facades
 
 ## Auth foundation
 
-Auth is modeled for **HttpOnly cookie sessions**:
+Auth uses **Bearer access tokens + HttpOnly refresh cookies**:
 
 - `AuthPort` defines `login`, `register`, `logout`, `restoreSession`
-- `IdentityMockAdapter` simulates cookie persistence with `sessionStorage` during local development
-- `IdentityHttpAdapter` is ready for backend wiring with `withCredentials: true`
-- NgRx identity state stores **CurrentUser only**, never access/refresh tokens
+- `AuthCommandsPort.bootstrap()` starts session restore from `App` (no feature action imports in `app.ts`)
+- `IdentityMockAdapter` simulates local sessions for UI-only work
+- `IdentityHttpAdapter` calls `/api/identity/*` with `withCredentials: true`
+- Access tokens live in `TokenSession` memory only and are never written to NgRx
+- Refresh tokens are set by the API as `HttpOnly` cookies (`refresh_token`, path `/api/identity`)
 - `AUTH_STATE` and `AUTH_COMMANDS` let `core`/`layout` consume auth without importing identity internals
 
 Bootstrap flow:
 
-1. `App` dispatches `IdentityActions.appStarted()`
+1. `App` calls `AUTH_COMMANDS.bootstrap()`
 2. effect calls `AuthPort.restoreSession()`
-3. guards wait until status is no longer `initializing`
+3. restore tries `/identity/me` when an access token exists, otherwise `/identity/refresh` via cookie
+4. guards wait until status is no longer `initializing`
+
+HTTP interceptor order (outer → inner):
+
+1. `correlationIdInterceptor`
+2. `unauthorizedInterceptor` (hard 401 after refresh skipped/failed retry)
+3. `authInterceptor` (attach Bearer + shared single-flight refresh on 401)
+
+Local development:
+
+1. API runs on `http://localhost:5050`
+2. Angular uses `apiBaseUrl: '/api'` and `proxy.conf.json` so browser traffic is same-origin on port `4200`
+3. Set `useMockAuth: false` in `environment.development.ts` to use the real API
+
+Identity endpoints:
+
+- `POST /api/identity/login`
+- `POST /api/identity/register`
+- `POST /api/identity/refresh`
+- `POST /api/identity/revoke`
+- `GET /api/identity/me`
+- `GET /api/identity/users`
 
 ## HTTP conventions
 
 - `mapHttpError()` converts Problem Details to user-facing messages
 - `correlationIdInterceptor` adds `X-Correlation-Id`
-- `UNAUTHORIZED_HANDLER` clears session on `401`
-- list endpoints should eventually return `PageResult<T>`
+- `authInterceptor` attaches Bearer tokens and performs a single shared refresh on `401`
+- Refresh failure (or hard retry `401`) calls `UNAUTHORIZED_HANDLER` to clear session
+- list endpoints return `PageResult<T>` and use shared `app-page-pager`
 
 ## UI conventions
 
@@ -71,23 +99,7 @@ Bootstrap flow:
 
 1. Create `features/<name>/` with `pages/`, `data-access/`, `state/`, `models/`, `<name>.routes.ts`, `index.ts`
 2. Lazy-load the route from `app.routes.ts`
-3. Define API contracts in `data-access/` and map errors through `mapHttpError`
-4. Expose a facade for components
-5. Add reducer/effect tests and at least one route or component test
-
-## Switching auth from mock to backend
-
-Development defaults to `useMockAuth: true` in `environment.development.ts`.
-Production defaults to `useMockAuth: false` and binds `IdentityHttpAdapter`.
-
-To force HTTP auth in local development:
-
-1. Set `useMockAuth: false` in `environment.development.ts`
-2. Ensure the API is reachable at `apiBaseUrl` and sets HttpOnly cookies for:
-   - `POST /auth/login`
-   - `POST /auth/register`
-   - `POST /auth/logout`
-   - `GET /auth/me`
-
-`provideIdentityAuth()` selects the adapter from `APP_CONFIG.useMockAuth`.
-No component or guard changes are required if the adapter honors `AuthPort`.
+3. Define API contracts/mappers in `data-access/` and map errors through `mapHttpError`
+4. Prefer `ListState<T>` + facade for paged lists; register state with `provideState` on the feature route
+5. Use `switchMap` in list effects
+6. Add reducer/effect/data-access tests and at least one route or component test

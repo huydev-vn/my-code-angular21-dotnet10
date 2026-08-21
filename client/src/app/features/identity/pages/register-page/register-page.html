@@ -1,10 +1,11 @@
-<div class="flex min-h-dvh items-center justify-center bg-slate-50 p-6">
+<div class="flex min-h-dvh items-center justify-center bg-app-surface p-6">
   <mat-card class="w-full max-w-md shadow-md">
     @if (authenticating()) {
       <mat-progress-bar mode="indeterminate" />
     }
     <mat-card-header>
       <mat-card-title>
+        <p class="mb-1 text-sm font-medium text-brand-700">Workspace</p>
         <h1 class="text-xl font-medium">Create account</h1>
       </mat-card-title>
     </mat-card-header>
@@ -38,9 +39,9 @@
         <button matButton="filled" type="submit" [disabled]="authenticating()">Register</button>
       </form>
 
-      <p class="mt-4 text-sm text-slate-600">
+      <p class="mt-4 text-sm text-app-muted">
         Already have an account?
-        <a routerLink="/auth/login" class="text-blue-700 underline">Sign in</a>
+        <a routerLink="/auth/login" class="app-link">Sign in</a>
       </p>
     </mat-card-content>
   </mat-card>

@@ -18,6 +18,10 @@ export class IdentityFacade implements AuthStatePort, AuthCommandsPort {
   readonly authenticating = this.store.selectSignal(identityFeature.selectAuthenticating);
   readonly initialized = this.store.selectSignal(identityFeature.selectInitialized);
 
+  bootstrap(): void {
+    this.store.dispatch(IdentityActions.appStarted());
+  }
+
   login(credentials: LoginRequest, returnUrl?: string | null): void {
     this.store.dispatch(IdentityActions.loginRequested({ credentials, returnUrl }));
   }

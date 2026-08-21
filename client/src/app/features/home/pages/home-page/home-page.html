@@ -1,6 +1,6 @@
 <app-page-header
   title="Workspace"
-  subtitle="Feature-based Angular 21 base with NgRx, Material, and Tailwind."
+  subtitle="Secure administration console for users, permissions, and organization units."
 />
 
 <div class="grid gap-4 md:grid-cols-3">
@@ -10,28 +10,28 @@
     </mat-card-header>
     <mat-card-content>
       <p class="mt-2 text-sm text-slate-700">{{ user()?.email }}</p>
-      <p class="mt-1 text-sm text-slate-500">{{ user()?.groups?.join(', ') }}</p>
+      <p class="mt-1 text-sm text-app-muted">{{ user()?.groups?.join(', ') }}</p>
     </mat-card-content>
   </mat-card>
 
   <a routerLink="/users" class="block no-underline">
-    <mat-card class="h-full">
+    <mat-card class="h-full border border-transparent transition hover:border-brand-200">
       <mat-card-header>
-        <mat-card-title>Users</mat-card-title>
+        <mat-card-title class="text-brand-800">Users</mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <p class="mt-2 text-sm text-slate-600">Browse the mocked user directory.</p>
+        <p class="mt-2 text-sm text-app-muted">Browse the user directory.</p>
       </mat-card-content>
     </mat-card>
   </a>
 
   <a routerLink="/authorization" class="block no-underline">
-    <mat-card class="h-full">
+    <mat-card class="h-full border border-transparent transition hover:border-brand-200">
       <mat-card-header>
-        <mat-card-title>Authorization</mat-card-title>
+        <mat-card-title class="text-brand-800">Authorization</mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <p class="mt-2 text-sm text-slate-600">Inspect permissions, groups, and units.</p>
+        <p class="mt-2 text-sm text-app-muted">Inspect permissions, groups, and units.</p>
       </mat-card-content>
     </mat-card>
   </a>

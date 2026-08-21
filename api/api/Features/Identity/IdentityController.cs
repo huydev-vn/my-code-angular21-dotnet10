@@ -1,5 +1,6 @@
 using Api.Authorization;
 using Api.Extensions;
+using Api.Identity;
 using Application.Common.Pagination;
 using Application.Features.Identity.Contracts;
 using Application.Features.Identity.GetCurrentUser;
@@ -24,13 +25,14 @@ public sealed class IdentityController(
     RefreshTokens refreshTokens,
     RevokeRefreshToken revokeRefreshToken,
     GetCurrentUser getCurrentUser,
-    ListUsers listUsers) : ControllerBase
+    ListUsers listUsers,
+    IHostEnvironment environment) : ControllerBase
 {
-    /// <summary>Creates a new user account and returns tokens.</summary>
+    /// <summary>Creates a new user account and returns an access token.</summary>
     [AllowAnonymous]
     [EnableRateLimiting(AuthenticationExtensions.AuthRateLimitPolicy)]
     [HttpPost("register")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(AccessTokenResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
@@ -44,14 +46,15 @@ public sealed class IdentityController(
             return result.ToActionResult(this);
         }
 
-        return CreatedAtAction(nameof(Me), result.Value);
+        RefreshTokenCookie.Set(Response, result.Value!, environment.IsDevelopment());
+        return CreatedAtAction(nameof(Me), result.Value!.ToAccessTokenResponse());
     }
 
-    /// <summary>Authenticates a user and returns tokens.</summary>
+    /// <summary>Authenticates a user and returns an access token.</summary>
     [AllowAnonymous]
     [EnableRateLimiting(AuthenticationExtensions.AuthRateLimitPolicy)]
     [HttpPost("login")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AccessTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login(
@@ -59,35 +62,71 @@ public sealed class IdentityController(
         CancellationToken cancellationToken)
     {
         var result = await loginUser.HandleAsync(request, cancellationToken);
-        return result.ToActionResult(this);
+        if (result.IsFailure)
+        {
+            return result.ToActionResult(this);
+        }
+
+        RefreshTokenCookie.Set(Response, result.Value!, environment.IsDevelopment());
+        return Ok(result.Value!.ToAccessTokenResponse());
     }
 
-    /// <summary>Rotates refresh tokens and issues a new access token.</summary>
+    /// <summary>
+    /// Rotates the refresh-token cookie and issues a new access token.
+    /// Accepts an optional body refresh token for non-browser clients.
+    /// </summary>
     [AllowAnonymous]
     [EnableRateLimiting(AuthenticationExtensions.AuthRateLimitPolicy)]
     [HttpPost("refresh")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AccessTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Refresh(
-        [FromBody] RefreshTokensRequest request,
+        [FromBody] RefreshTokensRequest? request,
         CancellationToken cancellationToken)
     {
-        var result = await refreshTokens.HandleAsync(request, cancellationToken);
-        return result.ToActionResult(this);
+        var refreshToken = ResolveRefreshToken(request?.RefreshToken);
+        if (refreshToken is null)
+        {
+            return BadRequest(CreateMissingRefreshTokenProblem());
+        }
+
+        var result = await refreshTokens.HandleAsync(
+            new RefreshTokensRequest { RefreshToken = refreshToken },
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            RefreshTokenCookie.Clear(Response, environment.IsDevelopment());
+            return result.ToActionResult(this);
+        }
+
+        RefreshTokenCookie.Set(Response, result.Value!, environment.IsDevelopment());
+        return Ok(result.Value!.ToAccessTokenResponse());
     }
 
-    /// <summary>Revokes the refresh-token family for the presented token.</summary>
+    /// <summary>
+    /// Revokes the refresh-token family from the cookie or optional body payload.
+    /// </summary>
     [AllowAnonymous]
     [EnableRateLimiting(AuthenticationExtensions.AuthRateLimitPolicy)]
     [HttpPost("revoke")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Revoke(
-        [FromBody] RevokeRefreshTokenRequest request,
+        [FromBody] RevokeRefreshTokenRequest? request,
         CancellationToken cancellationToken)
     {
-        var result = await revokeRefreshToken.HandleAsync(request, cancellationToken);
+        var refreshToken = ResolveRefreshToken(request?.RefreshToken);
+        if (refreshToken is null)
+        {
+            RefreshTokenCookie.Clear(Response, environment.IsDevelopment());
+            return NoContent();
+        }
+
+        var result = await revokeRefreshToken.HandleAsync(
+            new RevokeRefreshTokenRequest { RefreshToken = refreshToken },
+            cancellationToken);
+        RefreshTokenCookie.Clear(Response, environment.IsDevelopment());
         return result.ToActionResult(this);
     }
 
@@ -125,4 +164,23 @@ public sealed class IdentityController(
             cancellationToken);
         return Ok(result);
     }
+
+    private string? ResolveRefreshToken(string? bodyToken) =>
+        !string.IsNullOrWhiteSpace(bodyToken)
+            ? bodyToken
+            : RefreshTokenCookie.Read(Request);
+
+    private ProblemDetails CreateMissingRefreshTokenProblem() =>
+        new()
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Bad Request",
+            Detail = "A refresh token cookie or body value is required.",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+            Extensions =
+            {
+                ["code"] = "identity.refresh_token_required",
+                ["traceId"] = HttpContext.TraceIdentifier
+            }
+        };
 }

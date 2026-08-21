@@ -1,7 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-
-import { AuthorizationFacade } from '../../state/authorization.facade';
 
 @Component({
   selector: 'app-authorization-shell',
@@ -10,10 +8,4 @@ import { AuthorizationFacade } from '../../state/authorization.facade';
   template: '<router-outlet />',
   styleUrl: './authorization-shell.css',
 })
-export class AuthorizationShell implements OnInit {
-  private readonly authorization = inject(AuthorizationFacade);
-
-  ngOnInit(): void {
-    this.authorization.loadCatalogIfNeeded();
-  }
-}
+export class AuthorizationShell {}

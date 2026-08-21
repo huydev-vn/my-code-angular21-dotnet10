@@ -3,8 +3,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  inject,
   DestroyRef,
+  inject,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -15,14 +15,20 @@ import { MatSidenav, MatSidenavContainer, MatSidenavContent } from '@angular/mat
 import { MatToolbar } from '@angular/material/toolbar';
 import { filter, map } from 'rxjs';
 
-import { AUTH_COMMANDS, AUTH_STATE, SystemPermissions } from '../../core';
+import { AUTH_COMMANDS, AUTH_STATE, SystemPermission, SystemPermissions } from '../../core';
 import { UiFacade } from '../../core/store/ui/ui.facade';
 
 interface NavItem {
   readonly label: string;
   readonly icon: string;
   readonly path: string;
-  readonly permission?: string;
+  readonly permission?: SystemPermission;
+}
+
+interface NavGroup {
+  readonly id: string;
+  readonly label: string;
+  readonly items: readonly NavItem[];
 }
 
 @Component({
@@ -58,6 +64,7 @@ export class Shell {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
+  protected readonly appName = 'Workspace';
   protected readonly sidenavOpened = this.ui.sidenavOpened;
   protected readonly user = this.authState.user;
   protected readonly isHandset = toSignal(
@@ -66,38 +73,59 @@ export class Shell {
   );
   protected readonly sidenavMode = computed(() => (this.isHandset() ? 'over' : 'side'));
 
-  private readonly navItems: readonly NavItem[] = [
-    { label: 'Home', icon: 'home', path: '/' },
+  private readonly navGroups: readonly NavGroup[] = [
     {
-      label: 'Users',
-      icon: 'group',
-      path: '/users',
-      permission: SystemPermissions.UsersRead,
+      id: 'overview',
+      label: 'Overview',
+      items: [{ label: 'Home', icon: 'home', path: '/' }],
     },
     {
-      label: 'Permissions',
-      icon: 'verified_user',
-      path: '/authorization/permissions',
-      permission: SystemPermissions.AuthorizationPermissionsRead,
+      id: 'directory',
+      label: 'Directory',
+      items: [
+        {
+          label: 'Users',
+          icon: 'group',
+          path: '/users',
+          permission: SystemPermissions.UsersRead,
+        },
+      ],
     },
     {
-      label: 'Groups',
-      icon: 'groups',
-      path: '/authorization/groups',
-      permission: SystemPermissions.AuthorizationGroupsRead,
-    },
-    {
-      label: 'Organization units',
-      icon: 'account_tree',
-      path: '/authorization/organization-units',
-      permission: SystemPermissions.AuthorizationOrganizationUnitsRead,
+      id: 'authorization',
+      label: 'Authorization',
+      items: [
+        {
+          label: 'Permissions',
+          icon: 'verified_user',
+          path: '/authorization/permissions',
+          permission: SystemPermissions.AuthorizationPermissionsRead,
+        },
+        {
+          label: 'Groups',
+          icon: 'groups',
+          path: '/authorization/groups',
+          permission: SystemPermissions.AuthorizationGroupsRead,
+        },
+        {
+          label: 'Organization units',
+          icon: 'account_tree',
+          path: '/authorization/organization-units',
+          permission: SystemPermissions.AuthorizationOrganizationUnitsRead,
+        },
+      ],
     },
   ];
 
-  protected readonly visibleNav = computed(() =>
-    this.navItems.filter(
-      (item) => !item.permission || this.authState.hasPermission(item.permission as never),
-    ),
+  protected readonly visibleNavGroups = computed(() =>
+    this.navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) => !item.permission || this.authState.hasPermission(item.permission),
+        ),
+      }))
+      .filter((group) => group.items.length > 0),
   );
 
   constructor() {

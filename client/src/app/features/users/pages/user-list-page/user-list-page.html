@@ -1,6 +1,6 @@
 <app-page-header
   title="Users"
-  subtitle="Directory of accounts in this workspace. Data is mocked until the API is wired."
+  subtitle="Directory of accounts in this workspace."
 />
 
 <app-request-state
@@ -27,4 +27,12 @@
       <tr mat-row *matRowDef="let row; columns: columns"></tr>
     </table>
   </div>
+
+  <app-page-pager
+    [totalCount]="totalCount()"
+    [page]="page()"
+    [pageSize]="pageSize()"
+    [disabled]="loading()"
+    (pageChange)="onPageChange($event)"
+  />
 </app-request-state>

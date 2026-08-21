@@ -18,7 +18,8 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration,
-        string connectionString)
+        string connectionString,
+        bool isDevelopment = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
@@ -29,10 +30,18 @@ public static class DependencyInjection
 
         services.AddSingleton<Application.Common.Time.IClock, SystemClock>();
         services.AddDbContext<AppDbContext>(options =>
+        {
             options.UseNpgsql(
                 connectionString,
                 npgsqlOptions => npgsqlOptions.MigrationsAssembly(
-                    typeof(AppDbContext).Assembly.FullName)));
+                    typeof(AppDbContext).Assembly.FullName));
+
+            if (isDevelopment)
+            {
+                options.EnableDetailedErrors();
+                options.EnableSensitiveDataLogging();
+            }
+        });
 
         services
             .AddIdentityCore<ApplicationUser>(options =>

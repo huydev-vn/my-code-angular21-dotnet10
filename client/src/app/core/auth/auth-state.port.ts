@@ -15,6 +15,8 @@ export interface AuthStatePort {
 }
 
 export interface AuthCommandsPort {
+  /** Kick off session restore (call once at app bootstrap). */
+  bootstrap(): void;
   logout(): void;
 }
 

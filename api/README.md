@@ -84,6 +84,15 @@ Development endpoints:
 - Identity: `/api/identity/register`, `/login`, `/refresh`, `/revoke`, `/me`, `/users`
 - Authorization admin: `/api/authorization/*`
 
+Authentication contract for the Angular client:
+
+- Access tokens are returned in the JSON body (`accessToken`, `accessTokenExpiresAt`)
+- Refresh tokens are issued only as the HttpOnly cookie `refresh_token` (`Path=/api/identity`)
+- Browser clients should call identity endpoints with credentials and use the Angular
+  development proxy (`/api` → `http://localhost:5050`) so cookies stay same-origin
+- `POST /api/identity/refresh` and `/revoke` read the cookie; optional body refresh tokens
+  remain supported for non-browser clients
+
 `GET /api/identity/users` requires the `users.read` permission.
 Authorization admin endpoints require the corresponding `authorization.*` permissions.
 Resource-scoped endpoints should use `[RequirePermissionOnUnit("invoice.read")]`

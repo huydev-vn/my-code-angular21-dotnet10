@@ -3,18 +3,25 @@ import { usersFeature, usersInitialState } from './users.feature';
 
 describe('usersFeature reducer', () => {
   it('loads users into the entity adapter', () => {
-    const loading = usersFeature.reducer(usersInitialState, UsersActions.loadRequested());
+    const loading = usersFeature.reducer(
+      usersInitialState,
+      UsersActions.loadRequested({ query: { page: 1, pageSize: 20 } }),
+    );
     expect(loading.loading).toBe(true);
 
     const loaded = usersFeature.reducer(
       loading,
       UsersActions.loadSucceeded({
         users: [{ id: '1', email: 'a@local.dev', groups: ['Ops'] }],
+        totalCount: 1,
+        page: 1,
+        pageSize: 20,
       }),
     );
 
     expect(loaded.loading).toBe(false);
     expect(loaded.ids).toEqual(['1']);
     expect(loaded.entities['1']?.email).toBe('a@local.dev');
+    expect(loaded.totalCount).toBe(1);
   });
 });

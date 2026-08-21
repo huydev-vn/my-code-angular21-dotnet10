@@ -3,7 +3,7 @@ import { provideEffects } from '@ngrx/effects';
 import { provideState } from '@ngrx/store';
 
 import { permissionGuard } from '../../core/auth/auth.guards';
-import { SystemPermissions } from '../identity/models/identity.models';
+import { SystemPermissions } from '../../core/auth/system-permissions';
 import { UserListPage } from './pages/user-list-page/user-list-page';
 import { UsersEffects } from './state/users.effects';
 import { UsersFacade } from './state/users.facade';

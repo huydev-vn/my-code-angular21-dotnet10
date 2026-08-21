@@ -2,3 +2,82 @@
   display: block;
   height: 100%;
 }
+
+.shell-sidenav {
+  width: var(--app-sidenav-width);
+  border-right: 1px solid var(--app-border);
+  background: var(--app-surface-raised);
+}
+
+.shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1rem 1rem;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.shell-brand__mark {
+  display: block;
+  width: 0.75rem;
+  height: 2rem;
+  border-radius: 0.25rem;
+  background: linear-gradient(180deg, var(--app-primary-500), var(--app-primary-700));
+}
+
+.shell-brand__name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--app-primary-800);
+  line-height: 1.25;
+}
+
+.shell-brand__tagline {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+}
+
+.shell-nav {
+  padding: 0.75rem 0 1rem;
+}
+
+.shell-nav__group-label {
+  margin: 0.85rem 1rem 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.shell-nav__item {
+  margin: 0 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.shell-nav__item--active {
+  background: var(--app-primary-50) !important;
+  color: var(--app-primary-800);
+}
+
+.shell-nav__item--active mat-icon {
+  color: var(--app-primary-700);
+}
+
+.shell-toolbar {
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.shell-toolbar__title {
+  margin-left: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.shell-main {
+  background: var(--app-surface);
+}

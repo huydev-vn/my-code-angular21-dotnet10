@@ -1,36 +1,56 @@
-<mat-sidenav-container class="h-full">
+<mat-sidenav-container class="shell-container h-full">
   <mat-sidenav
-    class="w-64 border-r border-slate-200"
+    class="shell-sidenav"
     [opened]="sidenavOpened()"
     [mode]="sidenavMode()"
     [fixedInViewport]="true"
+    [attr.aria-label]="appName + ' navigation'"
   >
-    <div class="px-4 py-5 text-lg font-medium">Workspace</div>
-    <mat-nav-list>
-      @for (item of visibleNav(); track item.path) {
-        <a
-          mat-list-item
-          [routerLink]="item.path"
-          routerLinkActive="bg-slate-100"
-          [routerLinkActiveOptions]="{ exact: item.path === '/' }"
-        >
-          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-          <span matListItemTitle>{{ item.label }}</span>
-        </a>
+    <div class="shell-brand">
+      <span class="shell-brand__mark" aria-hidden="true"></span>
+      <div>
+        <p class="shell-brand__name">{{ appName }}</p>
+        <p class="shell-brand__tagline">Secure administration</p>
+      </div>
+    </div>
+
+    <nav class="shell-nav" aria-label="Primary">
+      @for (group of visibleNavGroups(); track group.id) {
+        <p class="shell-nav__group-label" [id]="'nav-group-' + group.id">{{ group.label }}</p>
+        <mat-nav-list [attr.aria-labelledby]="'nav-group-' + group.id">
+          @for (item of group.items; track item.path) {
+            <a
+              mat-list-item
+              class="shell-nav__item"
+              [routerLink]="item.path"
+              routerLinkActive="shell-nav__item--active"
+              [routerLinkActiveOptions]="{ exact: item.path === '/' }"
+            >
+              <mat-icon matListItemIcon aria-hidden="true">{{ item.icon }}</mat-icon>
+              <span matListItemTitle>{{ item.label }}</span>
+            </a>
+          }
+        </mat-nav-list>
       }
-    </mat-nav-list>
+    </nav>
   </mat-sidenav>
 
   <mat-sidenav-content class="flex min-h-full flex-col">
-    <mat-toolbar class="sticky top-0 z-10 border-b border-slate-200 bg-white">
-      <button matIconButton type="button" aria-label="Toggle navigation" (click)="toggleSidenav()">
-        <mat-icon>menu</mat-icon>
+    <mat-toolbar class="shell-toolbar sticky top-0 z-10">
+      <button
+        matIconButton
+        type="button"
+        aria-label="Toggle navigation menu"
+        [attr.aria-expanded]="sidenavOpened()"
+        (click)="toggleSidenav()"
+      >
+        <mat-icon aria-hidden="true">menu</mat-icon>
       </button>
-      <span class="ml-2 grow text-base font-medium">{{ user()?.email }}</span>
+      <span class="shell-toolbar__title grow truncate">{{ user()?.email }}</span>
       <button matButton type="button" (click)="logout()">Sign out</button>
     </mat-toolbar>
 
-    <main class="flex-1 bg-slate-50 p-6">
+    <main class="shell-main flex-1 p-6">
       <div class="mx-auto max-w-6xl">
         <router-outlet />
       </div>

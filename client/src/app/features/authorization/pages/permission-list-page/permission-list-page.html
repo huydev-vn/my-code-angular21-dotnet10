@@ -1,6 +1,6 @@
 <app-page-header
   title="Permissions"
-  subtitle="Runtime permission catalog. This list is mocked until the API is connected."
+  subtitle="Runtime permission catalog from the authorization API."
 />
 
 <app-request-state
@@ -18,4 +18,12 @@
       </mat-list-item>
     }
   </mat-list>
+
+  <app-page-pager
+    [totalCount]="totalCount()"
+    [page]="page()"
+    [pageSize]="pageSize()"
+    [disabled]="loading()"
+    (pageChange)="onPageChange($event)"
+  />
 </app-request-state>

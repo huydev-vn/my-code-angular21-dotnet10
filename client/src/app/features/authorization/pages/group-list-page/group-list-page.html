@@ -14,7 +14,18 @@
     @for (group of groups(); track group.id) {
       <mat-list-item>
         <span matListItemTitle>{{ group.name }}</span>
+        @if (group.description) {
+          <span matListItemLine>{{ group.description }}</span>
+        }
       </mat-list-item>
     }
   </mat-list>
+
+  <app-page-pager
+    [totalCount]="totalCount()"
+    [page]="page()"
+    [pageSize]="pageSize()"
+    [disabled]="loading()"
+    (pageChange)="onPageChange($event)"
+  />
 </app-request-state>

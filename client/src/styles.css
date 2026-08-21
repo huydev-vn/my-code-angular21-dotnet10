@@ -1,6 +1,37 @@
 @import 'tailwindcss';
 @import '@angular/material/prebuilt-themes/azure-blue.css';
 
+/* Government-safe primary blue tokens (WCAG-friendly on white). */
+:root {
+  --app-primary-50: #e8f1f8;
+  --app-primary-100: #d0e3f1;
+  --app-primary-200: #a1c7e3;
+  --app-primary-500: #1a6bb5;
+  --app-primary-600: #0f4c81;
+  --app-primary-700: #0a3a66;
+  --app-primary-800: #072c4d;
+  --app-surface: #f4f7fb;
+  --app-surface-raised: #ffffff;
+  --app-border: #d5dee8;
+  --app-text: #0f172a;
+  --app-text-muted: #475569;
+  --app-focus-ring: #1a6bb5;
+  --app-sidenav-width: 16rem;
+}
+
+@theme {
+  --color-brand-50: var(--app-primary-50);
+  --color-brand-100: var(--app-primary-100);
+  --color-brand-200: var(--app-primary-200);
+  --color-brand-500: var(--app-primary-500);
+  --color-brand-600: var(--app-primary-600);
+  --color-brand-700: var(--app-primary-700);
+  --color-brand-800: var(--app-primary-800);
+  --color-app-surface: var(--app-surface);
+  --color-app-border: var(--app-border);
+  --color-app-muted: var(--app-text-muted);
+}
+
 html,
 body {
   height: 100%;
@@ -8,7 +39,14 @@ body {
 
 body {
   margin: 0;
+  color: var(--app-text);
+  background-color: var(--app-surface);
   font-family: Roboto, 'Helvetica Neue', sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
 }
 
 .sr-only {
@@ -21,4 +59,14 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+a.app-link {
+  color: var(--app-primary-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a.app-link:hover {
+  color: var(--app-primary-800);
 }
