@@ -1,8 +1,8 @@
 namespace Domain.Authorization;
 
 /// <summary>
-/// Dynamic permission entry in the catalog. Permissions are created at runtime
-/// and referenced by stable codes such as <c>users.read</c> or <c>invoice.export.excel</c>.
+/// Danh mục quyền chức năng (permission catalog). Ví dụ: <c>users.read</c>,
+/// <c>authorization.groups.write</c>. Đây là quyền thao tác chức năng, không phải nhóm user.
 /// </summary>
 public sealed class PermissionDefinition
 {
@@ -30,12 +30,16 @@ public sealed class PermissionDefinition
 
     public Guid Id { get; private set; }
 
+    /// <summary>Mã ổn định dùng trong policy/handler, ví dụ users.read.</summary>
     public string Code { get; private set; } = null!;
 
+    /// <summary>Tên hiển thị cho quản trị viên.</summary>
     public string Name { get; private set; } = null!;
 
+    /// <summary>Module nghiệp vụ (users, authorization, …).</summary>
     public string? Module { get; private set; }
 
+    /// <summary>Hành động trong module (read, write, …).</summary>
     public string? Action { get; private set; }
 
     public bool IsActive { get; private set; }

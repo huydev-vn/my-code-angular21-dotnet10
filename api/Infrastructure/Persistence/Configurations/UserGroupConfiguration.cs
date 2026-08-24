@@ -8,7 +8,10 @@ internal sealed class UserGroupConfiguration : IEntityTypeConfiguration<UserGrou
 {
     public void Configure(EntityTypeBuilder<UserGroup> builder)
     {
-        builder.ToTable("UserGroups");
+        builder.ToTable(
+            "UserGroups",
+            table => table.HasComment(
+                "Nhóm phân quyền nghiệp vụ: tập hợp permission chức năng và phạm vi đơn vị."));
         builder.HasKey(group => group.Id);
 
         builder.Property(group => group.Name)
@@ -20,6 +23,12 @@ internal sealed class UserGroupConfiguration : IEntityTypeConfiguration<UserGrou
 
         builder.Property(group => group.Description)
             .HasMaxLength(1024);
+
+        builder.Property(group => group.IsPrivileged)
+            .IsRequired()
+            .HasDefaultValue(false)
+            .HasComment(
+                "Privileged bootstrap groups (global admin). Membership and high-risk permissions are restricted.");
 
         builder.Property(group => group.Version)
             .IsConcurrencyToken()

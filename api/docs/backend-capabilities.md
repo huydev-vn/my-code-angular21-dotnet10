@@ -16,7 +16,7 @@ the feature is implemented, configured, and tested.
 | File logs | `Serilog.Sinks.File` | Api | Local troubleshooting only | Not ideal in containers | `dotnet add api package Serilog.Sinks.File` |
 | Bogus | `Bogus` | Test/seed project | Fake data in tests | Never reference from runtime | `dotnet add Tests package Bogus` |
 | MediatR / CQRS | `MediatR` | Application | Many use cases need a dispatcher | Not required by Clean Architecture | Do not add until orchestration pain is real |
-| Redis | `Microsoft.Extensions.Caching.StackExchangeRedis` | Infrastructure | Distributed cache, lock, or rate-limit | Invalidation and failure modes | `dotnet add Infrastructure package Microsoft.Extensions.Caching.StackExchangeRedis` |
+| Redis | `Microsoft.Extensions.Caching.StackExchangeRedis`, `StackExchange.Redis` | Infrastructure | Multi-replica authorization cache/version + auth rate limits | Ops for Redis HA/TLS/ACL; PostgreSQL stays source of truth | Already referenced |
 | Background jobs | `Hangfire.AspNetCore`, `Hangfire.PostgreSql` | Api + Infrastructure | Durable jobs with retry/dashboard | Extra storage and ops | `dotnet add api package Hangfire.AspNetCore` |
 
 Do not add `Microsoft.EntityFrameworkCore.Tools` to a project. This repository

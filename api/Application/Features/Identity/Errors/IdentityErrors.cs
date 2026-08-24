@@ -27,4 +27,32 @@ public static class IdentityErrors
     public static readonly Error RegistrationDisabled = Error.Forbidden(
         "identity.registration_disabled",
         "Self-service registration is disabled.");
+
+    public static readonly Error TokenIssuanceFailed = Error.Conflict(
+        "identity.token_issuance_failed",
+        "Authentication succeeded but tokens could not be issued. Try again.");
+
+    public static readonly Error MfaRequired = Error.Unauthorized(
+        "identity.mfa_required",
+        "A multi-factor authentication code is required.");
+
+    public static readonly Error InvalidMfaCode = Error.Unauthorized(
+        "identity.invalid_mfa_code",
+        "The multi-factor authentication code is invalid.");
+
+    public static readonly Error InvalidMfaTicket = Error.Unauthorized(
+        "identity.invalid_mfa_ticket",
+        "The multi-factor authentication challenge is invalid or expired.");
+
+    public static readonly Error MfaAlreadyEnabled = Error.Conflict(
+        "identity.mfa_already_enabled",
+        "Authenticator MFA is already enabled for this account.");
+
+    public static readonly Error MfaNotEnabled = Error.Validation(
+        "identity.mfa_not_enabled",
+        "Authenticator MFA is not enabled for this account.");
+
+    public static readonly Error PrivilegedMfaRequired = Error.Forbidden(
+        "identity.privileged_mfa_required",
+        "Privileged accounts must keep authenticator MFA enabled.");
 }

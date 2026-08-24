@@ -15,6 +15,7 @@ public interface IAuthorizationAdminStore
 
     Task<PageResult<PermissionDefinition>> ListPermissionsAsync(
         PageRequest page,
+        bool? isActive,
         CancellationToken cancellationToken);
 
     Task AddPermissionAsync(
@@ -31,6 +32,7 @@ public interface IAuthorizationAdminStore
 
     Task<PageResult<UserGroup>> ListGroupsAsync(
         PageRequest page,
+        bool? isActive,
         CancellationToken cancellationToken);
 
     Task AddGroupAsync(UserGroup group, CancellationToken cancellationToken);
@@ -45,6 +47,7 @@ public interface IAuthorizationAdminStore
 
     Task<PageResult<OrganizationUnit>> ListOrganizationUnitsAsync(
         PageRequest page,
+        bool? isActive,
         CancellationToken cancellationToken);
 
     Task AddOrganizationUnitAsync(
@@ -60,13 +63,34 @@ public interface IAuthorizationAdminStore
         GroupPermission assignment,
         CancellationToken cancellationToken);
 
+    Task<bool> RemoveGroupPermissionAsync(
+        Guid groupId,
+        Guid permissionId,
+        CancellationToken cancellationToken);
+
     Task<bool> UserGroupMembershipExistsAsync(
         Guid userId,
         Guid groupId,
         CancellationToken cancellationToken);
 
+    Task<bool> IsMemberOfAnyPrivilegedGroupAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Counts active memberships in a privileged group (group must be privileged and active).
+    /// </summary>
+    Task<int> CountActiveMembersInGroupAsync(
+        Guid groupId,
+        CancellationToken cancellationToken);
+
     Task AddUserGroupMembershipAsync(
         UserGroupMembership membership,
+        CancellationToken cancellationToken);
+
+    Task<bool> RemoveUserGroupMembershipAsync(
+        Guid userId,
+        Guid groupId,
         CancellationToken cancellationToken);
 
     Task<bool> GroupOrganizationUnitExistsAsync(
@@ -78,6 +102,11 @@ public interface IAuthorizationAdminStore
         GroupOrganizationUnit assignment,
         CancellationToken cancellationToken);
 
+    Task<bool> RemoveGroupOrganizationUnitAsync(
+        Guid groupId,
+        Guid organizationUnitId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<Guid>> GetDescendantOrganizationUnitIdsAsync(
         Guid rootOrganizationUnitId,
         CancellationToken cancellationToken);
@@ -85,5 +114,11 @@ public interface IAuthorizationAdminStore
     Task<bool> WouldCreateOrganizationUnitCycleAsync(
         Guid organizationUnitId,
         Guid? newParentId,
+        CancellationToken cancellationToken);
+
+    Task<PageResult<AuthorizationAuditEvent>> ListAuditEventsAsync(
+        PageRequest page,
+        string? action,
+        Guid? actorUserId,
         CancellationToken cancellationToken);
 }

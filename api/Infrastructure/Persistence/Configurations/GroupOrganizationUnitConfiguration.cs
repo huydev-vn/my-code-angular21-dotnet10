@@ -9,7 +9,10 @@ internal sealed class GroupOrganizationUnitConfiguration
 {
     public void Configure(EntityTypeBuilder<GroupOrganizationUnit> builder)
     {
-        builder.ToTable("GroupOrganizationUnits");
+        builder.ToTable(
+            "GroupOrganizationUnits",
+            table => table.HasComment(
+                "Bảng nối nhóm ↔ đơn vị: phạm vi dữ liệu của group (đơn vị và các con)."));
         builder.HasKey(assignment => new { assignment.GroupId, assignment.OrganizationUnitId });
 
         builder.HasOne<UserGroup>()

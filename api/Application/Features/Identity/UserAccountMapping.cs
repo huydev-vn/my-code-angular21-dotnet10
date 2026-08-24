@@ -7,6 +7,8 @@ internal static class UserAccountMapping
 {
     public static UserResponse ToResponse(
         this UserAccount user,
+        bool isPrivileged,
+        bool requireMfaForPrivileged,
         IReadOnlyList<string> groups,
         IReadOnlyList<string> permissions,
         IReadOnlyList<Guid> accessibleOrganizationUnitIds) =>
@@ -14,6 +16,11 @@ internal static class UserAccountMapping
             user.Id,
             user.Email,
             user.CreatedAt,
+            user.TwoFactorEnabled,
+            isPrivileged,
+            RequiresMfaEnrollment: requireMfaForPrivileged &&
+                isPrivileged &&
+                !user.TwoFactorEnabled,
             groups,
             permissions,
             accessibleOrganizationUnitIds);

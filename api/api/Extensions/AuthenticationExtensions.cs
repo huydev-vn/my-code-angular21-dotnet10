@@ -55,6 +55,8 @@ internal static class AuthenticationExtensions
                         IssuerSigningKey = new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes(jwt.SigningKey)),
                         ValidateLifetime = true,
+                        RequireSignedTokens = true,
+                        ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
                         ClockSkew = TimeSpan.FromSeconds(30),
                         RoleClaimType = ClaimTypes.Role,
                         NameClaimType = JwtRegisteredClaimNames.Email

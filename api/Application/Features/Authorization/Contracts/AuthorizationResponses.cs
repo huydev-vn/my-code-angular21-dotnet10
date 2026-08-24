@@ -22,6 +22,7 @@ public sealed record UserGroupResponse(
     Guid Id,
     string Name,
     string? Description,
+    bool IsPrivileged,
     bool IsActive,
     DateTimeOffset CreatedAt);
 

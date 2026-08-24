@@ -7,9 +7,10 @@ public sealed class ListPermissionDefinitions(IAuthorizationAdminStore store)
 {
     public async Task<Contracts.PermissionDefinitionListResponse> HandleAsync(
         PageRequest page,
+        bool? isActive,
         CancellationToken cancellationToken)
     {
-        var result = await store.ListPermissionsAsync(page, cancellationToken);
+        var result = await store.ListPermissionsAsync(page, isActive, cancellationToken);
         return new Contracts.PermissionDefinitionListResponse(
             result.Items.Select(permission => permission.ToResponse()).ToArray(),
             result.TotalCount,

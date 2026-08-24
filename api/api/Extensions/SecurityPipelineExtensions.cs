@@ -2,6 +2,7 @@ using System.Net;
 using System.Threading.RateLimiting;
 using Api.Configuration;
 using Api.Middleware;
+using Application.Features.Identity.Abstractions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,10 @@ internal static class SecurityPipelineExtensions
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.OnRejected = async (context, cancellationToken) =>
             {
+                context.HttpContext.RequestServices
+                    .GetService<IAuthMetrics>()
+                    ?.RateLimited();
+
                 context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
                 var problem = new ProblemDetails
                 {
@@ -37,17 +42,26 @@ internal static class SecurityPipelineExtensions
                 problem.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
                 await context.HttpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
             };
+            // Partition only by client IP + path. Do not accept client-supplied
+            // account headers — those enable unlimited bucket rotation.
             options.AddPolicy(
                 AuthenticationExtensions.AuthRateLimitPolicy,
-                httpContext => RateLimitPartition.GetFixedWindowLimiter(
-                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 10,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0,
-                        AutoReplenishment = true
-                    }));
+                httpContext =>
+                {
+                    var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    var path = httpContext.Request.Path.Value?.ToLowerInvariant() ?? "/";
+                    var partitionKey = $"{ip}|{path}";
+
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey,
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 10,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0,
+                            AutoReplenishment = true
+                        });
+                });
         });
 
         services.AddOptions<ForwardedHeadersOptions>()
@@ -90,6 +104,49 @@ internal static class SecurityPipelineExtensions
         this WebApplication app,
         string corsPolicy)
     {
+        if (!app.Environment.IsDevelopment())
+        {
+            var allowedHosts = app.Configuration["AllowedHosts"];
+            if (string.IsNullOrWhiteSpace(allowedHosts) || allowedHosts.Trim() == "*")
+            {
+                throw new InvalidOperationException(
+                    "AllowedHosts must be set to concrete host name(s) outside Development.");
+            }
+
+            var knownProxies = app.Configuration
+                .GetSection("ReverseProxy:KnownProxies")
+                .Get<string[]>() ?? [];
+            var knownNetworks = app.Configuration
+                .GetSection("ReverseProxy:KnownNetworks")
+                .Get<string[]>() ?? [];
+            if (knownProxies.Length == 0 && knownNetworks.Length == 0)
+            {
+                app.Logger.LogWarning(
+                    "ReverseProxy:KnownProxies and KnownNetworks are empty. " +
+                    "If the API sits behind a reverse proxy, configure them or rate limiting " +
+                    "and forwarded headers will use the proxy IP for every client.");
+            }
+
+            var clientOrigins = app.Configuration.GetSection("Client:Origins").Get<string[]>() ?? [];
+            if (clientOrigins.Length == 0 ||
+                clientOrigins.Any(origin =>
+                    !Uri.TryCreate(origin, UriKind.Absolute, out var uri) ||
+                    uri.Scheme != Uri.UriSchemeHttps))
+            {
+                throw new InvalidOperationException(
+                    "Client:Origins must contain at least one absolute HTTPS origin outside Development.");
+            }
+
+            var redisConnection = Infrastructure.Caching.RedisConnection.ResolveConnectionString(
+                app.Configuration);
+            if (string.IsNullOrWhiteSpace(redisConnection))
+            {
+                throw new InvalidOperationException(
+                    "Redis:ConnectionString (or ConnectionStrings:Redis) is required outside Development for shared " +
+                    "authorization cache/version and distributed auth rate limits.");
+            }
+        }
+
         app.UseExceptionHandler();
         app.UseStatusCodePages();
         app.UseMiddleware<CorrelationIdMiddleware>();
@@ -102,6 +159,8 @@ internal static class SecurityPipelineExtensions
         }
 
         app.UseMiddleware<SecurityHeadersMiddleware>();
+        app.UseMiddleware<CookieCsrfMiddleware>();
+        app.UseMiddleware<RedisAuthRateLimitMiddleware>();
         app.UseSerilogRequestLogging(options =>
         {
             options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
@@ -126,6 +185,11 @@ internal static class SecurityPipelineExtensions
                 "/health/live",
                 new HealthCheckOptions { Predicate = _ => false })
             .AllowAnonymous();
+
+        // Readiness probes PostgreSQL and Redis (when configured). Leave
+        // AllowAnonymous for orchestrator probes, but do not expose this path on
+        // the public internet — restrict at ingress / load-balancer ACLs to the
+        // control plane network only.
         app.MapHealthChecks(
                 "/health/ready",
                 new HealthCheckOptions
@@ -133,5 +197,12 @@ internal static class SecurityPipelineExtensions
                     Predicate = check => check.Tags.Contains("ready")
                 })
             .AllowAnonymous();
+
+        if (!app.Environment.IsDevelopment())
+        {
+            app.Logger.LogWarning(
+                "Map /health/ready is anonymous and hits PostgreSQL/Redis. " +
+                "Restrict it to the orchestrator/load-balancer network at the edge.");
+        }
     }
 }

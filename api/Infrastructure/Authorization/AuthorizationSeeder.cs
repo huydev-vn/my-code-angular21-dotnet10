@@ -77,11 +77,16 @@ public static class AuthorizationSeeder
 
         if (group is null)
         {
-            group = UserGroup.Create(
+            group = UserGroup.CreatePrivileged(
                 SystemAdministratorsGroupName,
                 "Full access to authorization administration.",
                 clock.UtcNow);
             dbContext.UserGroups.Add(group);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        else if (!group.IsPrivileged)
+        {
+            group.MarkPrivileged();
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
@@ -134,6 +139,10 @@ public static class AuthorizationSeeder
 
         if (adminUser is null)
         {
+            logger.LogWarning(
+                "Seed admin email {AdminEmail} was configured but the Identity user does not exist yet. " +
+                "Ensure IdentitySeeder created the user (password required in user-secrets).",
+                adminEmail);
             return;
         }
 

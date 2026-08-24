@@ -31,6 +31,18 @@ internal sealed class RefreshTokenStore(AppDbContext dbContext) : IRefreshTokenS
                 cancellationToken);
     }
 
+    public async Task RevokeAllForUserAsync(
+        Guid userId,
+        DateTimeOffset revokedAt,
+        CancellationToken cancellationToken)
+    {
+        await dbContext.RefreshTokens
+            .Where(token => token.UserId == userId && token.RevokedAt == null)
+            .ExecuteUpdateAsync(
+                updates => updates.SetProperty(token => token.RevokedAt, revokedAt),
+                cancellationToken);
+    }
+
     public async Task<bool> TryRotateAsync(
         RefreshToken current,
         RefreshToken next,
@@ -58,5 +70,35 @@ internal sealed class RefreshTokenStore(AppDbContext dbContext) : IRefreshTokenS
         await DbUpdateConflict.SaveChangesAsync(dbContext, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return true;
+    }
+
+    public async Task<int> PurgeStaleAsync(
+        DateTimeOffset olderThan,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        if (batchSize < 1)
+        {
+            return 0;
+        }
+
+        var ids = await dbContext.RefreshTokens
+            .AsNoTracking()
+            .Where(token =>
+                (token.RevokedAt != null && token.RevokedAt < olderThan) ||
+                (token.RevokedAt == null && token.ExpiresAt < olderThan))
+            .OrderBy(token => token.ExpiresAt)
+            .Select(token => token.Id)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+
+        if (ids.Count == 0)
+        {
+            return 0;
+        }
+
+        return await dbContext.RefreshTokens
+            .Where(token => ids.Contains(token.Id))
+            .ExecuteDeleteAsync(cancellationToken);
     }
 }

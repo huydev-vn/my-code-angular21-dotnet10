@@ -63,7 +63,10 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.HasIndex("EntityType", "EntityId");
 
-                    b.ToTable("AuthorizationAuditEvents", (string)null);
+                    b.ToTable("AuthorizationAuditEvents", null, t =>
+                        {
+                            t.HasComment("Nhật ký thay đổi quản trị authorization (actor, hành động, entity, trace).");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Authorization.GroupOrganizationUnit", b =>
@@ -81,7 +84,10 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrganizationUnitId");
 
-                    b.ToTable("GroupOrganizationUnits", (string)null);
+                    b.ToTable("GroupOrganizationUnits", null, t =>
+                        {
+                            t.HasComment("Bảng nối nhóm ↔ đơn vị: phạm vi dữ liệu của group (đơn vị và các con).");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Authorization.GroupPermission", b =>
@@ -99,7 +105,10 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PermissionId");
 
-                    b.ToTable("GroupPermissions", (string)null);
+                    b.ToTable("GroupPermissions", null, t =>
+                        {
+                            t.HasComment("Bảng nối nhóm ↔ quyền chức năng: group được phép làm gì.");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Authorization.OrganizationUnit", b =>
@@ -140,7 +149,10 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("OrganizationUnits", (string)null);
+                    b.ToTable("OrganizationUnits", null, t =>
+                        {
+                            t.HasComment("Cây đơn vị tổ chức/phòng ban — phạm vi dữ liệu cha-con.");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Authorization.PermissionDefinition", b =>
@@ -156,7 +168,8 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("character varying(128)")
+                        .HasComment("Mã quyền ổn định dùng trong policy.");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -184,7 +197,10 @@ namespace Infrastructure.Persistence.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("PermissionDefinitions", (string)null);
+                    b.ToTable("PermissionDefinitions", null, t =>
+                        {
+                            t.HasComment("Danh mục quyền chức năng (permission catalog), ví dụ users.read. Không phải nhóm user.");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Authorization.UserGroup", b =>
@@ -203,6 +219,12 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsPrivileged")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasComment("Privileged bootstrap groups (global admin). Membership and high-risk permissions are restricted.");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -219,7 +241,10 @@ namespace Infrastructure.Persistence.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("UserGroups", (string)null);
+                    b.ToTable("UserGroups", null, t =>
+                        {
+                            t.HasComment("Nhóm phân quyền nghiệp vụ: tập hợp permission chức năng và phạm vi đơn vị.");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Authorization.UserGroupMembership", b =>
@@ -237,7 +262,10 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.HasIndex("GroupId");
 
-                    b.ToTable("UserGroupMemberships", (string)null);
+                    b.ToTable("UserGroupMemberships", null, t =>
+                        {
+                            t.HasComment("Bảng nối user ↔ nhóm phân quyền: user thuộc group nào.");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Identity.RefreshToken", b =>
@@ -250,35 +278,46 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Thời điểm hết hạn; dùng cho cleanup retention.");
 
                     b.Property<Guid>("FamilyId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasComment("Nhóm token cùng phiên đăng nhập; revoke cả family khi phát hiện replay.");
 
                     b.Property<Guid?>("ReplacedByTokenId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("RevokedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasComment("Thời điểm revoke; null = còn hiệu lực (nếu chưa hết hạn).");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("character varying(64)")
+                        .HasComment("Hash SHA-256 của refresh token; không lưu plaintext.");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ExpiresAt");
+
                     b.HasIndex("FamilyId");
+
+                    b.HasIndex("RevokedAt");
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens", null, t =>
+                        {
+                            t.HasComment("Lịch sử refresh token (chỉ lưu hash). Mỗi login/refresh tạo bản ghi mới; token cũ bị revoke nhưng giữ lại để phát hiện tái sử dụng (replay).");
+                        });
                 });
 
             modelBuilder.Entity("Infrastructure.Identity.ApplicationRole", b =>

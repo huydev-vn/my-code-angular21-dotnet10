@@ -1,6 +1,8 @@
 namespace Domain.Authorization;
 
-/// <summary>Grants a permission from the catalog to a user group.</summary>
+/// <summary>
+/// Bảng nối nhóm ↔ quyền chức năng. Gán permission từ catalog cho một UserGroup.
+/// </summary>
 public sealed class GroupPermission
 {
     private GroupPermission()

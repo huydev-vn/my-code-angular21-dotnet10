@@ -22,7 +22,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 ["Jwt:SigningKey"] = JwtOptions.DevelopmentSigningKey,
                 ["Identity:RunSeeders"] = "false",
                 ["Identity:AllowRegistration"] = "false",
-                ["Client:Origins:0"] = "http://localhost:4200"
+                ["Client:Origins:0"] = "http://localhost:4200",
+                // Pipeline tests use process-local authz version/cache (no Redis).
+                ["Redis:ConnectionString"] = "",
+                ["ConnectionStrings:Redis"] = ""
             });
         });
     }

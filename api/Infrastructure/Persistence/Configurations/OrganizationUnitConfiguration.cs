@@ -8,7 +8,10 @@ internal sealed class OrganizationUnitConfiguration : IEntityTypeConfiguration<O
 {
     public void Configure(EntityTypeBuilder<OrganizationUnit> builder)
     {
-        builder.ToTable("OrganizationUnits");
+        builder.ToTable(
+            "OrganizationUnits",
+            table => table.HasComment(
+                "Cây đơn vị tổ chức/phòng ban — phạm vi dữ liệu cha-con."));
         builder.HasKey(unit => unit.Id);
 
         builder.Property(unit => unit.Name)

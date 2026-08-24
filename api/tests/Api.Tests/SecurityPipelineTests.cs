@@ -47,4 +47,107 @@ public sealed class SecurityPipelineTests(ApiFactory factory) : IClassFixture<Ap
         var payload = await response.Content.ReadAsStringAsync();
         Assert.Contains("validation.failed", payload, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Login_WithUntrustedOrigin_ReturnsCsrfForbidden()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/identity/login")
+        {
+            Content = JsonContent.Create(new
+            {
+                email = "user@example.com",
+                password = "Password123!@#"
+            })
+        };
+        request.Headers.TryAddWithoutValidation("Origin", "https://evil.example");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("identity.csrf_origin_rejected", payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Refresh_WithCookieAndUntrustedOrigin_ReturnsCsrfForbidden()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/identity/refresh");
+        request.Headers.TryAddWithoutValidation("Origin", "https://evil.example");
+        request.Headers.TryAddWithoutValidation("Cookie", "refresh_token=not-a-real-token");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("identity.csrf_origin_rejected", payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MfaVerify_WithUntrustedOrigin_ReturnsCsrfForbidden()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/identity/mfa/verify")
+        {
+            Content = JsonContent.Create(new
+            {
+                mfaTicket = "not-a-real-ticket",
+                code = "123456"
+            })
+        };
+        request.Headers.TryAddWithoutValidation("Origin", "https://evil.example");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("identity.csrf_origin_rejected", payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Login_WithTrustedOrigin_PassesCsrfGate()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/identity/login")
+        {
+            Content = JsonContent.Create(new
+            {
+                email = "user@example.com",
+                password = "Password123!@#"
+            })
+        };
+        request.Headers.TryAddWithoutValidation("Origin", "http://localhost:4200");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("identity.csrf_origin_rejected", payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Refresh_WithoutCookie_SkipsCsrfEvenWithUntrustedOrigin()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/identity/refresh")
+        {
+            Content = JsonContent.Create(new { refreshToken = "body-token" })
+        };
+        request.Headers.TryAddWithoutValidation("Origin", "https://evil.example");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("identity.csrf_origin_rejected", payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Refresh_WithCookieAndNoOrigin_ReturnsCsrfForbidden()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/identity/refresh");
+        request.Headers.TryAddWithoutValidation("Cookie", "refresh_token=not-a-real-token");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("identity.csrf_origin_rejected", payload, StringComparison.Ordinal);
+    }
 }

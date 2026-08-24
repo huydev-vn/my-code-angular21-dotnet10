@@ -44,7 +44,11 @@ DI, middleware order, and endpoint mapping.
 
 - JWT proves **who** the caller is. It does not carry permission claims.
 - `[RequirePermission("invoice.read")]` asks the database: does this user currently have that permission via an active group?
-- `[RequirePermissionOnUnit("invoice.read", "organizationUnitId")]` also checks organization-unit scope (the unit from the route/query and its descendants).
+- Permission decisions are cached in-process briefly (`Authorization:Cache:AbsoluteExpirationSeconds`, default 30s) and invalidated immediately in the same process when authorization rows change. Multi-instance deployments still wait for TTL unless a shared cache is added later.
+- Do **not** use ASP.NET Identity roles for authorization. `ApplicationRole` / AspNetRoles exist only for Identity schema compatibility; policies must use permission codes / groups.
+- `[RequirePermissionOnUnit("invoice.read", "organizationUnitId")]` also checks organization-unit scope (the unit from the route/query and its descendants). **Use this for resource APIs.**
+- Authorization catalog admin endpoints (`/api/authorization/*` mutations) are intentionally **global** (`[RequirePermission]` only). Privileged groups (`IsPrivileged`, e.g. System Administrators) hold high-risk `authorization.*.write` permissions and must not be OU-scoped.
+- High-risk write permissions may only be assigned to privileged groups; privileged membership changes require a privileged actor.
 - `GET /api/authorization/me` is for the signed-in user only; admin catalog APIs need `authorization.*` permissions.
 
 ## HTTP contract

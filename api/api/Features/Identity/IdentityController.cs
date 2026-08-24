@@ -6,6 +6,7 @@ using Application.Features.Identity.Contracts;
 using Application.Features.Identity.GetCurrentUser;
 using Application.Features.Identity.ListUsers;
 using Application.Features.Identity.Login;
+using Application.Features.Identity.Mfa;
 using Application.Features.Identity.Refresh;
 using Application.Features.Identity.Register;
 using Application.Features.Identity.Revoke;
@@ -22,8 +23,13 @@ namespace Api.Features.Identity;
 public sealed class IdentityController(
     RegisterUser registerUser,
     LoginUser loginUser,
+    VerifyMfaLogin verifyMfaLogin,
+    BeginAuthenticatorSetup beginAuthenticatorSetup,
+    ConfirmAuthenticatorSetup confirmAuthenticatorSetup,
+    DisableAuthenticator disableAuthenticator,
     RefreshTokens refreshTokens,
     RevokeRefreshToken revokeRefreshToken,
+    RevokeAllSessions revokeAllSessions,
     GetCurrentUser getCurrentUser,
     ListUsers listUsers,
     IHostEnvironment environment) : ControllerBase
@@ -36,6 +42,7 @@ public sealed class IdentityController(
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Register(
         [FromBody] RegisterUserRequest request,
         CancellationToken cancellationToken)
@@ -50,13 +57,19 @@ public sealed class IdentityController(
         return CreatedAtAction(nameof(Me), result.Value!.ToAccessTokenResponse());
     }
 
-    /// <summary>Authenticates a user and returns an access token.</summary>
+    /// <summary>
+    /// Authenticates with email/password. When MFA is enabled, returns an MFA
+    /// challenge instead of tokens.
+    /// </summary>
     [AllowAnonymous]
     [EnableRateLimiting(AuthenticationExtensions.AuthRateLimitPolicy)]
     [HttpPost("login")]
     [ProducesResponseType(typeof(AccessTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(MfaChallengeResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Login(
         [FromBody] LoginUserRequest request,
         CancellationToken cancellationToken)
@@ -67,13 +80,118 @@ public sealed class IdentityController(
             return result.ToActionResult(this);
         }
 
+        var login = result.Value!;
+        if (login.RequiresMfa)
+        {
+            return Ok(new MfaChallengeResponse(login.MfaToken!, login.MfaExpiresAt!.Value));
+        }
+
+        RefreshTokenCookie.Set(Response, login.Tokens!, environment.IsDevelopment());
+        return Ok(login.Tokens!.ToAccessTokenResponse());
+    }
+
+    /// <summary>Completes password login with a TOTP authenticator code.</summary>
+    [AllowAnonymous]
+    [EnableRateLimiting(AuthenticationExtensions.AuthRateLimitPolicy)]
+    [HttpPost("mfa/verify")]
+    [ProducesResponseType(typeof(AccessTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> VerifyMfa(
+        [FromBody] VerifyMfaLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await verifyMfaLogin.HandleAsync(request, cancellationToken);
+        if (result.IsFailure)
+        {
+            return result.ToActionResult(this);
+        }
+
         RefreshTokenCookie.Set(Response, result.Value!, environment.IsDevelopment());
         return Ok(result.Value!.ToAccessTokenResponse());
+    }
+
+    /// <summary>Starts authenticator MFA enrollment for the current user.</summary>
+    [Authorize]
+    [HttpPost("mfa/setup/begin")]
+    [ProducesResponseType(typeof(AuthenticatorSetupResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> BeginMfaSetup(CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var result = await beginAuthenticatorSetup.HandleAsync(userId.Value, cancellationToken);
+        if (result.IsFailure)
+        {
+            return result.ToActionResult(this);
+        }
+
+        return Ok(new AuthenticatorSetupResponse(
+            result.Value!.SharedKey,
+            result.Value.AuthenticatorUri));
+    }
+
+    /// <summary>Confirms authenticator MFA enrollment with a TOTP code.</summary>
+    [Authorize]
+    [HttpPost("mfa/setup/confirm")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ConfirmMfaSetup(
+        [FromBody] ConfirmAuthenticatorSetupRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var result = await confirmAuthenticatorSetup.HandleAsync(
+            userId.Value,
+            request,
+            cancellationToken);
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Disables authenticator MFA. Privileged accounts cannot disable MFA when
+    /// <c>Identity:RequireMfaForPrivileged</c> is enabled.
+    /// </summary>
+    [Authorize]
+    [HttpPost("mfa/disable")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DisableMfa(
+        [FromBody] DisableAuthenticatorRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var result = await disableAuthenticator.HandleAsync(
+            userId.Value,
+            request,
+            cancellationToken);
+        return result.ToActionResult(this);
     }
 
     /// <summary>
     /// Rotates the refresh-token cookie and issues a new access token.
     /// Accepts an optional body refresh token for non-browser clients.
+    /// Cookie-based browser calls require a trusted Origin/Referer (CSRF defense).
+    /// Access JWTs already issued remain valid until their short lifetime expires.
     /// </summary>
     [AllowAnonymous]
     [EnableRateLimiting(AuthenticationExtensions.AuthRateLimitPolicy)]
@@ -81,6 +199,8 @@ public sealed class IdentityController(
     [ProducesResponseType(typeof(AccessTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Refresh(
         [FromBody] RefreshTokensRequest? request,
         CancellationToken cancellationToken)
@@ -106,12 +226,15 @@ public sealed class IdentityController(
 
     /// <summary>
     /// Revokes the refresh-token family from the cookie or optional body payload.
+    /// Does not invalidate access JWTs that are already in circulation.
     /// </summary>
     [AllowAnonymous]
     [EnableRateLimiting(AuthenticationExtensions.AuthRateLimitPolicy)]
     [HttpPost("revoke")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Revoke(
         [FromBody] RevokeRefreshTokenRequest? request,
         CancellationToken cancellationToken)
@@ -126,6 +249,27 @@ public sealed class IdentityController(
         var result = await revokeRefreshToken.HandleAsync(
             new RevokeRefreshTokenRequest { RefreshToken = refreshToken },
             cancellationToken);
+        RefreshTokenCookie.Clear(Response, environment.IsDevelopment());
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Revokes every active refresh-token family for the current user (logout everywhere).
+    /// Existing access JWTs remain usable until expiry (typically AccessTokenMinutes).
+    /// </summary>
+    [Authorize]
+    [HttpPost("sessions/revoke-all")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RevokeAllSessions(CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var result = await revokeAllSessions.HandleAsync(userId.Value, cancellationToken);
         RefreshTokenCookie.Clear(Response, environment.IsDevelopment());
         return result.ToActionResult(this);
     }

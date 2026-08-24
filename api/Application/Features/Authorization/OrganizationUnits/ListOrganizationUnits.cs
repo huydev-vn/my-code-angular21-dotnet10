@@ -7,9 +7,10 @@ public sealed class ListOrganizationUnits(IAuthorizationAdminStore store)
 {
     public async Task<Contracts.OrganizationUnitListResponse> HandleAsync(
         PageRequest page,
+        bool? isActive,
         CancellationToken cancellationToken)
     {
-        var result = await store.ListOrganizationUnitsAsync(page, cancellationToken);
+        var result = await store.ListOrganizationUnitsAsync(page, isActive, cancellationToken);
         return new Contracts.OrganizationUnitListResponse(
             result.Items.Select(unit => unit.ToResponse()).ToArray(),
             result.TotalCount,

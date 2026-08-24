@@ -15,3 +15,29 @@ public sealed record AuthResponse(
     public AccessTokenResponse ToAccessTokenResponse() =>
         new(AccessToken, AccessTokenExpiresAt);
 }
+
+/// <summary>Password login outcome: either tokens or an MFA challenge.</summary>
+public sealed record LoginResult(
+    AuthResponse? Tokens,
+    string? MfaToken,
+    DateTimeOffset? MfaExpiresAt)
+{
+    public bool RequiresMfa =>
+        !string.IsNullOrWhiteSpace(MfaToken) && MfaExpiresAt is not null;
+
+    public static LoginResult Succeeded(AuthResponse tokens) =>
+        new(tokens, MfaToken: null, MfaExpiresAt: null);
+
+    public static LoginResult Challenge(string mfaToken, DateTimeOffset expiresAt) =>
+        new(Tokens: null, mfaToken, expiresAt);
+}
+
+/// <summary>Browser/API response when TOTP is required after password login.</summary>
+public sealed record MfaChallengeResponse(
+    string MfaToken,
+    DateTimeOffset ExpiresAt);
+
+/// <summary>Authenticator enrollment payload for authenticator apps.</summary>
+public sealed record AuthenticatorSetupResponse(
+    string SharedKey,
+    string AuthenticatorUri);

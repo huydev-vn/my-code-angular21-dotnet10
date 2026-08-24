@@ -1,0 +1,46 @@
+---
+description: Backend auth and authorization invariants for the ASP.NET Core API
+globs: api/**/*.{cs,csproj,json,md}
+alwaysApply: false
+---
+
+# Backend Auth
+
+Reference: `api/docs/auth-development.md` and `api/README.md`.
+
+## Boundaries
+
+- Controllers only route HTTP and map results; no EF queries, transactions, or auth business rules.
+- Return DTOs only — never EF entities.
+- Identity (users/passwords/refresh tokens) is separate from dynamic authorization (permissions/groups/OUs).
+- ASP.NET Identity roles are schema scaffolding only — never use roles for access control.
+
+## Tokens and cookies
+
+- Access JWT: short-lived; validate issuer, audience, signature, lifetime.
+- Refresh tokens: store hashes only in PostgreSQL; rotate on use; revoke family on reuse/race.
+- Browser refresh cookie: HttpOnly, SameSite=Lax, Path=/api/identity, Secure outside Development.
+- Do not put refresh tokens in JSON responses for browser clients.
+- Cookie POSTs to refresh/revoke/login/register/mfa/verify require trusted Origin/Referer (CSRF).
+
+## Authorization
+
+- Protect admin endpoints with specific `authorization.*` or resource permissions.
+- Use `[RequirePermissionOnUnit]` for resource APIs that are organization-unit scoped.
+- Permission mutations must audit and bump authorization state version after PostgreSQL commit.
+- Never remove the last active member of a privileged group.
+
+## Redis
+
+- PostgreSQL is the source of truth. Redis is only for authz cache/version, MFA tickets, and distributed auth rate limits.
+- Do not introduce a generic `BaseRedisService`.
+- Prefer `Redis:ConnectionString`, with fallback to `ConnectionStrings:Redis`.
+- Every Redis key needs the app prefix and a TTL when the value is temporary.
+- If the shared authz version cannot be read, bypass distributed cache and load from PostgreSQL.
+
+## Security hygiene
+
+- Never log passwords, refresh tokens, access tokens, MFA secrets, or MFA tickets.
+- Use `ProblemDetails` with stable `code` values.
+- Keep rate limiting on auth endpoints; do not partition by client-supplied account headers.
+- Outside Development: require concrete AllowedHosts, HTTPS Client:Origins, non-dev JWT signing key, and Redis.

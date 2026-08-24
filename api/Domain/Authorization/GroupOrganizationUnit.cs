@@ -1,8 +1,8 @@
 namespace Domain.Authorization;
 
 /// <summary>
-/// Assigns an organization unit scope to a group. Members inherit access to the
-/// assigned unit and all descendants.
+/// Bảng nối nhóm ↔ đơn vị tổ chức. Gán phạm vi dữ liệu cho group: thành viên truy cập
+/// đơn vị được gán và mọi đơn vị con đang active.
 /// </summary>
 public sealed class GroupOrganizationUnit
 {

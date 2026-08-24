@@ -10,7 +10,10 @@ internal sealed class UserGroupMembershipConfiguration
 {
     public void Configure(EntityTypeBuilder<UserGroupMembership> builder)
     {
-        builder.ToTable("UserGroupMemberships");
+        builder.ToTable(
+            "UserGroupMemberships",
+            table => table.HasComment(
+                "Bảng nối user ↔ nhóm phân quyền: user thuộc group nào."));
         builder.HasKey(membership => new { membership.UserId, membership.GroupId });
 
         builder.HasOne<ApplicationUser>()

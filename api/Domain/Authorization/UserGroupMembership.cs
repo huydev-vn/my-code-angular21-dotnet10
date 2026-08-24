@@ -1,6 +1,8 @@
 namespace Domain.Authorization;
 
-/// <summary>Links an authenticated user to a business user group.</summary>
+/// <summary>
+/// Bảng nối user ↔ nhóm phân quyền. Quyết định user thuộc group nào và nhận permission/scope từ group đó.
+/// </summary>
 public sealed class UserGroupMembership
 {
     private UserGroupMembership()

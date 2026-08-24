@@ -9,12 +9,16 @@ internal sealed class PermissionDefinitionConfiguration
 {
     public void Configure(EntityTypeBuilder<PermissionDefinition> builder)
     {
-        builder.ToTable("PermissionDefinitions");
+        builder.ToTable(
+            "PermissionDefinitions",
+            table => table.HasComment(
+                "Danh mục quyền chức năng (permission catalog), ví dụ users.read. Không phải nhóm user."));
         builder.HasKey(permission => permission.Id);
 
         builder.Property(permission => permission.Code)
             .HasMaxLength(128)
-            .IsRequired();
+            .IsRequired()
+            .HasComment("Mã quyền ổn định dùng trong policy.");
 
         builder.HasIndex(permission => permission.Code)
             .IsUnique();

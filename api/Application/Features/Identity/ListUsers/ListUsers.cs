@@ -12,7 +12,14 @@ public sealed class ListUsers(IUserAccountService userAccountService)
     {
         var result = await userAccountService.ListAsync(page, cancellationToken);
         return new UserListResponse(
-            result.Items.Select(user => user.ToResponse([], [], [])).ToArray(),
+            result.Items.Select(user =>
+                    user.ToResponse(
+                        isPrivileged: false,
+                        requireMfaForPrivileged: false,
+                        [],
+                        [],
+                        []))
+                .ToArray(),
             result.TotalCount,
             result.Page,
             result.PageSize);

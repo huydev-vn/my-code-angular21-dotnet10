@@ -1,12 +1,28 @@
 using Application.Common.Persistence;
+using Application.Features.Authorization.Abstractions;
+using Domain.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure.Persistence;
 
-internal sealed class EfUnitOfWork(AppDbContext dbContext) : IUnitOfWork
+internal sealed class EfUnitOfWork(
+    AppDbContext dbContext,
+    IAuthorizationStateVersion authorizationStateVersion) : IUnitOfWork
 {
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
-        DbUpdateConflict.SaveChangesAsync(dbContext, cancellationToken);
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        var authorizationChanged = HasAuthorizationChanges();
+        var saved = await DbUpdateConflict.SaveChangesAsync(dbContext, cancellationToken);
+        if (authorizationChanged)
+        {
+            // Bump only after PostgreSQL commit so replicas never see a newer
+            // cache version pointing at uncommitted authorization state.
+            await authorizationStateVersion.BumpAsync(cancellationToken);
+        }
+
+        return saved;
+    }
 
     public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(
         CancellationToken cancellationToken)
@@ -14,6 +30,16 @@ internal sealed class EfUnitOfWork(AppDbContext dbContext) : IUnitOfWork
         var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         return new EfUnitOfWorkTransaction(transaction);
     }
+
+    private bool HasAuthorizationChanges() =>
+        dbContext.ChangeTracker.Entries().Any(entry =>
+            entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
+            entry.Entity is PermissionDefinition
+                or UserGroup
+                or OrganizationUnit
+                or GroupPermission
+                or UserGroupMembership
+                or GroupOrganizationUnit);
 
     private sealed class EfUnitOfWorkTransaction(IDbContextTransaction transaction)
         : IUnitOfWorkTransaction

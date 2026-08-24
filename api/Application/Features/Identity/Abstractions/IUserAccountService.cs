@@ -20,4 +20,28 @@ public interface IUserAccountService
     Task<PageResult<UserAccount>> ListAsync(
         PageRequest page,
         CancellationToken cancellationToken);
+
+    Task<Result<AuthenticatorSetup>> BeginAuthenticatorSetupAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    Task<Result> ConfirmAuthenticatorSetupAsync(
+        Guid userId,
+        string code,
+        CancellationToken cancellationToken);
+
+    Task<Result> DisableAuthenticatorAsync(
+        Guid userId,
+        string code,
+        CancellationToken cancellationToken);
+
+    Task<Result> VerifyAuthenticatorCodeAsync(
+        Guid userId,
+        string code,
+        CancellationToken cancellationToken);
 }
+
+/// <summary>Shared TOTP secret for authenticator app enrollment.</summary>
+public sealed record AuthenticatorSetup(
+    string SharedKey,
+    string AuthenticatorUri);

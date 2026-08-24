@@ -9,7 +9,10 @@ internal sealed class AuthorizationAuditEventConfiguration
 {
     public void Configure(EntityTypeBuilder<AuthorizationAuditEvent> builder)
     {
-        builder.ToTable("AuthorizationAuditEvents");
+        builder.ToTable(
+            "AuthorizationAuditEvents",
+            table => table.HasComment(
+                "Nhật ký thay đổi quản trị authorization (actor, hành động, entity, trace)."));
         builder.HasKey(entry => entry.Id);
 
         builder.Property(entry => entry.Action)

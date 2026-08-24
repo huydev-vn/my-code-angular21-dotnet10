@@ -22,6 +22,9 @@ public static class IdentitySeeder
         if (string.IsNullOrWhiteSpace(adminEmail) ||
             string.IsNullOrWhiteSpace(adminPassword))
         {
+            logger.LogInformation(
+                "Seed admin skipped: set Identity:SeedAdmin:Email and Identity:SeedAdmin:Password " +
+                "via user-secrets (Development) to create the System Administrators membership.");
             return;
         }
 

@@ -30,3 +30,32 @@ internal sealed class AssignGroupOrganizationUnitValidator
         RuleFor(request => request.OrganizationUnitId).NotEmpty();
     }
 }
+
+internal sealed class RevokeGroupPermissionValidator
+    : AbstractValidator<RevokeGroupPermissionRequest>
+{
+    public RevokeGroupPermissionValidator()
+    {
+        RuleFor(request => request.GroupId).NotEmpty();
+        RuleFor(request => request.PermissionId).NotEmpty();
+    }
+}
+
+internal sealed class RevokeUserFromGroupValidator : AbstractValidator<RevokeUserFromGroupRequest>
+{
+    public RevokeUserFromGroupValidator()
+    {
+        RuleFor(request => request.GroupId).NotEmpty();
+        RuleFor(request => request.UserId).NotEmpty();
+    }
+}
+
+internal sealed class RevokeGroupOrganizationUnitValidator
+    : AbstractValidator<RevokeGroupOrganizationUnitRequest>
+{
+    public RevokeGroupOrganizationUnitValidator()
+    {
+        RuleFor(request => request.GroupId).NotEmpty();
+        RuleFor(request => request.OrganizationUnitId).NotEmpty();
+    }
+}

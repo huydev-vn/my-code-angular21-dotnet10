@@ -12,6 +12,15 @@ public static class SystemPermissions
     public const string AuthorizationGroupsWrite = "authorization.groups.write";
     public const string AuthorizationOrganizationUnitsRead = "authorization.organization-units.read";
     public const string AuthorizationOrganizationUnitsWrite = "authorization.organization-units.write";
+    public const string AuthorizationAuditRead = "authorization.audit.read";
+
+    /// <summary>
+    /// Permissions that enable privilege escalation; assignable only to privileged groups.
+    /// </summary>
+    public static bool IsPrivilegedCatalogPermission(string code) =>
+        code is AuthorizationPermissionsWrite
+            or AuthorizationGroupsWrite
+            or AuthorizationOrganizationUnitsWrite;
 
     public static IReadOnlyList<(string Code, string Name, string Module, string Action)> All { get; } =
     [
@@ -22,6 +31,7 @@ public static class SystemPermissions
         (AuthorizationGroupsRead, "View user groups", "authorization", "groups.read"),
         (AuthorizationGroupsWrite, "Manage user groups", "authorization", "groups.write"),
         (AuthorizationOrganizationUnitsRead, "View organization units", "authorization", "organization-units.read"),
-        (AuthorizationOrganizationUnitsWrite, "Manage organization units", "authorization", "organization-units.write")
+        (AuthorizationOrganizationUnitsWrite, "Manage organization units", "authorization", "organization-units.write"),
+        (AuthorizationAuditRead, "View authorization audit log", "authorization", "audit.read")
     ];
 }

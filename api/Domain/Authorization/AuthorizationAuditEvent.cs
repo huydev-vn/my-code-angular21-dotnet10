@@ -1,5 +1,9 @@
 namespace Domain.Authorization;
 
+/// <summary>
+/// Nhật ký thay đổi quản trị authorization (tạo permission/group/đơn vị, gán/gỡ assignment).
+/// ActorUserId có thể null (hành động hệ thống); không FK cứng tới user để giữ lịch sử sau khi xóa tài khoản.
+/// </summary>
 public sealed class AuthorizationAuditEvent
 {
     private AuthorizationAuditEvent()

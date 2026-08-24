@@ -1,14 +1,31 @@
+using System.Text.Json;
 using Application.Features.Authorization.Abstractions;
 using Domain.Authorization;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Infrastructure.Authorization;
 
-internal sealed class AuthorizationDecisionService(AppDbContext dbContext)
+/// <summary>
+/// Resolves authorization context from PostgreSQL with an optional Redis-backed
+/// (or distributed-memory) cache keyed by user + shared authorization version.
+/// On cache read failures, falls back to PostgreSQL instead of serving stale data.
+/// </summary>
+internal sealed class AuthorizationDecisionService(
+    AppDbContext dbContext,
+    IDistributedCache distributedCache,
+    IAuthorizationStateVersion stateVersion,
+    IOptions<AuthorizationCacheOptions> cacheOptions,
+    ILogger<AuthorizationDecisionService> logger)
     : IAuthorizationDecisionService
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+
     private Guid? _cachedUserId;
+    private long _cachedVersion = -1;
     private UserAuthorizationContext? _cachedContext;
     private bool _cachedMissingUser;
 
@@ -16,15 +33,37 @@ internal sealed class AuthorizationDecisionService(AppDbContext dbContext)
         Guid userId,
         CancellationToken cancellationToken)
     {
-        if (_cachedUserId == userId)
+        var version = await stateVersion.GetCurrentAsync(cancellationToken);
+        if (version is null)
+        {
+            // Shared version store unavailable — skip scoped and distributed cache
+            // so we never serve a stale entry keyed under a fallback version.
+            logger.LogWarning(
+                "Authorization version unavailable; loading context from PostgreSQL without cache.");
+            return await LoadContextAsync(userId, cancellationToken);
+        }
+
+        if (_cachedUserId == userId && _cachedVersion == version.Value)
         {
             return _cachedMissingUser ? null : _cachedContext;
         }
 
+        var cacheKey = $"authz-ctx:{userId}:{version.Value}";
+        var cached = await TryGetFromDistributedCacheAsync(cacheKey, cancellationToken);
+        if (cached is not null)
+        {
+            StoreScoped(userId, version.Value, cached, missing: false);
+            return cached;
+        }
+
         var context = await LoadContextAsync(userId, cancellationToken);
-        _cachedUserId = userId;
-        _cachedMissingUser = context is null;
-        _cachedContext = context;
+        StoreScoped(userId, version.Value, context, missing: context is null);
+
+        if (context is not null)
+        {
+            await TrySetDistributedCacheAsync(cacheKey, context, cancellationToken);
+        }
+
         return context;
     }
 
@@ -77,6 +116,69 @@ internal sealed class AuthorizationDecisionService(AppDbContext dbContext)
     {
         var context = await GetContextAsync(userId, cancellationToken);
         return context?.AccessibleOrganizationUnitIds.Contains(organizationUnitId) == true;
+    }
+
+    private async Task<UserAuthorizationContext?> TryGetFromDistributedCacheAsync(
+        string cacheKey,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var bytes = await distributedCache.GetAsync(cacheKey, cancellationToken);
+            if (bytes is null || bytes.Length == 0)
+            {
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<UserAuthorizationContext>(bytes, SerializerOptions);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Authorization cache read failed for {CacheKey}; falling back to PostgreSQL.",
+                cacheKey);
+            return null;
+        }
+    }
+
+    private async Task TrySetDistributedCacheAsync(
+        string cacheKey,
+        UserAuthorizationContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var ttlSeconds = Math.Clamp(cacheOptions.Value.AbsoluteExpirationSeconds, 1, 300);
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(context, SerializerOptions);
+            await distributedCache.SetAsync(
+                cacheKey,
+                bytes,
+                new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(ttlSeconds)
+                },
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Authorization cache write failed for {CacheKey}; continuing without cache.",
+                cacheKey);
+        }
+    }
+
+    private void StoreScoped(
+        Guid userId,
+        long version,
+        UserAuthorizationContext? context,
+        bool missing)
+    {
+        _cachedUserId = userId;
+        _cachedVersion = version;
+        _cachedMissingUser = missing;
+        _cachedContext = context;
     }
 
     private async Task<UserAuthorizationContext?> LoadContextAsync(

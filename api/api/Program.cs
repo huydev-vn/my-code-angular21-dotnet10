@@ -35,7 +35,10 @@ builder.Services
             new JsonStringEnumConverter()));
 
 builder.Services.AddOpenApi(options =>
-    options.AddDocumentTransformer<BearerSecurityTransformer>());
+{
+    options.AddDocumentTransformer<BearerSecurityTransformer>();
+    options.AddOperationTransformer<BearerSecurityOperationTransformer>();
+});
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -53,6 +56,7 @@ builder.Services.AddCors(options =>
             .AllowCredentials()));
 
 builder.Services.AddApiSecurityServices(builder.Configuration);
+builder.Services.AddApiOpenTelemetry(builder.Configuration, builder.Environment);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(
     builder.Configuration,
@@ -65,6 +69,13 @@ var app = builder.Build();
 var identitySettings = app.Services.GetRequiredService<IIdentitySettings>();
 if (identitySettings.RunSeeders)
 {
+    if (!app.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "Identity:RunSeeders must remain false outside Development. " +
+            "Bootstrap admin accounts with a one-shot job, not every replica startup.");
+    }
+
     try
     {
         using var scope = app.Services.CreateScope();

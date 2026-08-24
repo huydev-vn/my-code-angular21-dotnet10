@@ -12,7 +12,6 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
         Guid id,
         CancellationToken cancellationToken) =>
         dbContext.PermissionDefinitions
-            .AsNoTracking()
             .FirstOrDefaultAsync(permission => permission.Id == id, cancellationToken);
 
     public Task<PermissionDefinition?> FindPermissionByCodeAsync(
@@ -26,9 +25,15 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
 
     public async Task<PageResult<PermissionDefinition>> ListPermissionsAsync(
         PageRequest page,
+        bool? isActive,
         CancellationToken cancellationToken)
     {
         var query = dbContext.PermissionDefinitions.AsNoTracking();
+        if (isActive is not null)
+        {
+            query = query.Where(permission => permission.IsActive == isActive.Value);
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
             .OrderBy(permission => permission.Code)
@@ -56,7 +61,6 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
         Guid id,
         CancellationToken cancellationToken) =>
         dbContext.UserGroups
-            .AsNoTracking()
             .FirstOrDefaultAsync(group => group.Id == id, cancellationToken);
 
     public Task<UserGroup?> FindGroupByNameAsync(
@@ -68,9 +72,15 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
 
     public async Task<PageResult<UserGroup>> ListGroupsAsync(
         PageRequest page,
+        bool? isActive,
         CancellationToken cancellationToken)
     {
         var query = dbContext.UserGroups.AsNoTracking();
+        if (isActive is not null)
+        {
+            query = query.Where(group => group.IsActive == isActive.Value);
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
             .OrderBy(group => group.Name)
@@ -92,7 +102,6 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
         Guid id,
         CancellationToken cancellationToken) =>
         dbContext.OrganizationUnits
-            .AsNoTracking()
             .FirstOrDefaultAsync(unit => unit.Id == id, cancellationToken);
 
     public Task<OrganizationUnit?> FindOrganizationUnitByCodeAsync(
@@ -104,9 +113,15 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
 
     public async Task<PageResult<OrganizationUnit>> ListOrganizationUnitsAsync(
         PageRequest page,
+        bool? isActive,
         CancellationToken cancellationToken)
     {
         var query = dbContext.OrganizationUnits.AsNoTracking();
+        if (isActive is not null)
+        {
+            query = query.Where(unit => unit.IsActive == isActive.Value);
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
             .OrderBy(unit => unit.Name)
@@ -151,6 +166,26 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
         return Task.CompletedTask;
     }
 
+    public async Task<bool> RemoveGroupPermissionAsync(
+        Guid groupId,
+        Guid permissionId,
+        CancellationToken cancellationToken)
+    {
+        var assignment = await dbContext.GroupPermissions
+            .FirstOrDefaultAsync(
+                entry =>
+                    entry.GroupId == groupId &&
+                    entry.PermissionId == permissionId,
+                cancellationToken);
+        if (assignment is null)
+        {
+            return false;
+        }
+
+        dbContext.GroupPermissions.Remove(assignment);
+        return true;
+    }
+
     public Task<bool> UserGroupMembershipExistsAsync(
         Guid userId,
         Guid groupId,
@@ -163,6 +198,29 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
                     membership.GroupId == groupId,
                 cancellationToken);
 
+    public Task<bool> IsMemberOfAnyPrivilegedGroupAsync(
+        Guid userId,
+        CancellationToken cancellationToken) =>
+        dbContext.UserGroupMemberships
+            .AsNoTracking()
+            .AnyAsync(
+                membership =>
+                    membership.UserId == userId &&
+                    dbContext.UserGroups.Any(group =>
+                        group.Id == membership.GroupId &&
+                        group.IsPrivileged &&
+                        group.IsActive),
+                cancellationToken);
+
+    public Task<int> CountActiveMembersInGroupAsync(
+        Guid groupId,
+        CancellationToken cancellationToken) =>
+        dbContext.UserGroupMemberships
+            .AsNoTracking()
+            .CountAsync(
+                membership => membership.GroupId == groupId,
+                cancellationToken);
+
     public Task AddUserGroupMembershipAsync(
         UserGroupMembership membership,
         CancellationToken cancellationToken)
@@ -170,6 +228,24 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
         cancellationToken.ThrowIfCancellationRequested();
         dbContext.UserGroupMemberships.Add(membership);
         return Task.CompletedTask;
+    }
+
+    public async Task<bool> RemoveUserGroupMembershipAsync(
+        Guid userId,
+        Guid groupId,
+        CancellationToken cancellationToken)
+    {
+        var membership = await dbContext.UserGroupMemberships
+            .FirstOrDefaultAsync(
+                entry => entry.UserId == userId && entry.GroupId == groupId,
+                cancellationToken);
+        if (membership is null)
+        {
+            return false;
+        }
+
+        dbContext.UserGroupMemberships.Remove(membership);
+        return true;
     }
 
     public Task<bool> GroupOrganizationUnitExistsAsync(
@@ -191,6 +267,26 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
         cancellationToken.ThrowIfCancellationRequested();
         dbContext.GroupOrganizationUnits.Add(assignment);
         return Task.CompletedTask;
+    }
+
+    public async Task<bool> RemoveGroupOrganizationUnitAsync(
+        Guid groupId,
+        Guid organizationUnitId,
+        CancellationToken cancellationToken)
+    {
+        var assignment = await dbContext.GroupOrganizationUnits
+            .FirstOrDefaultAsync(
+                entry =>
+                    entry.GroupId == groupId &&
+                    entry.OrganizationUnitId == organizationUnitId,
+                cancellationToken);
+        if (assignment is null)
+        {
+            return false;
+        }
+
+        dbContext.GroupOrganizationUnits.Remove(assignment);
+        return true;
     }
 
     public Task<IReadOnlyList<Guid>> GetDescendantOrganizationUnitIdsAsync(
@@ -217,7 +313,6 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
             return true;
         }
 
-        // Only walk the ancestor chain of the proposed parent — not the full tree.
         var current = newParentId;
         var guard = 0;
         while (current is Guid parentId)
@@ -240,5 +335,37 @@ internal sealed class AuthorizationAdminStore(AppDbContext dbContext) : IAuthori
         }
 
         return false;
+    }
+
+    public async Task<PageResult<AuthorizationAuditEvent>> ListAuditEventsAsync(
+        PageRequest page,
+        string? action,
+        Guid? actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.AuthorizationAuditEvents.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(action))
+        {
+            var normalized = action.Trim();
+            query = query.Where(entry => entry.Action == normalized);
+        }
+
+        if (actorUserId is not null)
+        {
+            query = query.Where(entry => entry.ActorUserId == actorUserId);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(entry => entry.OccurredAt)
+            .Skip(page.Skip)
+            .Take(page.PageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PageResult<AuthorizationAuditEvent>(
+            items,
+            totalCount,
+            page.Page,
+            page.PageSize);
     }
 }

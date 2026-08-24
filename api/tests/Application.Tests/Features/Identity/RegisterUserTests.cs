@@ -39,6 +39,12 @@ public sealed class RegisterUserTests
         public bool RunSeeders { get; } = RunSeeders;
 
         public bool ConfirmEmailOnProvision { get; } = ConfirmEmailOnProvision;
+
+        public bool RequireMfaForPrivileged => true;
+
+        public int MfaChallengeMinutes => 5;
+
+        public string AuthenticatorIssuer => "test";
     }
 
     private sealed class NoOpValidator : AbstractValidator<RegisterUserRequest>;

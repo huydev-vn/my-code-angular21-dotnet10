@@ -21,6 +21,7 @@ internal static class AuthorizationMapping
             group.Id,
             group.Name,
             group.Description,
+            group.IsPrivileged,
             group.IsActive,
             group.CreatedAt);
 

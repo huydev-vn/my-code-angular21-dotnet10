@@ -1,8 +1,8 @@
 namespace Domain.Authorization;
 
 /// <summary>
-/// Hierarchical organization unit. Data visibility is scoped to assigned units
-/// and all of their descendants.
+/// Cây đơn vị tổ chức / phòng ban. Dùng làm phạm vi dữ liệu: group được gán đơn vị X
+/// thì truy cập X và mọi đơn vị con (descendants).
 /// </summary>
 public sealed class OrganizationUnit
 {
@@ -32,6 +32,7 @@ public sealed class OrganizationUnit
 
     public string Code { get; private set; } = null!;
 
+    /// <summary>Đơn vị cha; null = nút gốc.</summary>
     public Guid? ParentId { get; private set; }
 
     public bool IsActive { get; private set; }

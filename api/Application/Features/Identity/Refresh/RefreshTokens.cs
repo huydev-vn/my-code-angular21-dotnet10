@@ -14,7 +14,8 @@ public sealed class RefreshTokens(
     IRefreshTokenStore refreshTokenStore,
     IUserAccountService userAccountService,
     AuthTokenIssuer tokenIssuer,
-    IClock clock)
+    IClock clock,
+    IAuthMetrics authMetrics)
 {
     public async Task<Result<AuthResponse>> HandleAsync(
         RefreshTokensRequest request,
@@ -32,18 +33,22 @@ public sealed class RefreshTokens(
         var stored = await refreshTokenStore.FindByHashAsync(tokenHash, cancellationToken);
         if (stored is null)
         {
+            authMetrics.RefreshFailed();
             return Result<AuthResponse>.Failure(IdentityErrors.InvalidRefreshToken);
         }
 
         if (stored.IsRevoked)
         {
             await refreshTokenStore.RevokeFamilyAsync(stored.FamilyId, now, cancellationToken);
+            authMetrics.RefreshReuseDetected();
+            authMetrics.RefreshFailed();
             return Result<AuthResponse>.Failure(IdentityErrors.InvalidRefreshToken);
         }
 
         if (stored.IsExpired(now))
         {
             await refreshTokenStore.RevokeFamilyAsync(stored.FamilyId, now, cancellationToken);
+            authMetrics.RefreshFailed();
             return Result<AuthResponse>.Failure(IdentityErrors.InvalidRefreshToken);
         }
 
@@ -51,6 +56,15 @@ public sealed class RefreshTokens(
         if (user is null)
         {
             await refreshTokenStore.RevokeFamilyAsync(stored.FamilyId, now, cancellationToken);
+            authMetrics.RefreshFailed();
+            return Result<AuthResponse>.Failure(IdentityErrors.InvalidRefreshToken);
+        }
+
+        // Lockout must stop refresh chains, not only password login.
+        if (user.IsLockedOut)
+        {
+            await refreshTokenStore.RevokeFamilyAsync(stored.FamilyId, now, cancellationToken);
+            authMetrics.RefreshFailed();
             return Result<AuthResponse>.Failure(IdentityErrors.InvalidRefreshToken);
         }
 
@@ -61,9 +75,15 @@ public sealed class RefreshTokens(
             cancellationToken);
         if (tokens is null)
         {
+            // Rotation lost a race (token already revoked/replaced). Treat as reuse:
+            // revoke the whole family so a concurrent thief cannot keep a descendant.
+            await refreshTokenStore.RevokeFamilyAsync(stored.FamilyId, now, cancellationToken);
+            authMetrics.RefreshReuseDetected();
+            authMetrics.RefreshFailed();
             return Result<AuthResponse>.Failure(IdentityErrors.InvalidRefreshToken);
         }
 
+        authMetrics.RefreshSucceeded();
         return Result<AuthResponse>.Success(tokens);
     }
 }

@@ -7,9 +7,10 @@ public sealed class ListUserGroups(IAuthorizationAdminStore store)
 {
     public async Task<Contracts.UserGroupListResponse> HandleAsync(
         PageRequest page,
+        bool? isActive,
         CancellationToken cancellationToken)
     {
-        var result = await store.ListGroupsAsync(page, cancellationToken);
+        var result = await store.ListGroupsAsync(page, isActive, cancellationToken);
         return new Contracts.UserGroupListResponse(
             result.Items.Select(group => group.ToResponse()).ToArray(),
             result.TotalCount,
