@@ -1,24 +1,11 @@
+# Local development only. Do not use as a production compose file.
+# Redis runs in Docker. PostgreSQL is expected from the host (Windows) on localhost:5432.
+# Ports bind to localhost so Redis is not exposed on the LAN.
 services:
-  postgres:
-    image: postgres:16-alpine
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: app
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
@@ -29,5 +16,4 @@ services:
       retries: 10
 
 volumes:
-  postgres_data:
   redis_data:

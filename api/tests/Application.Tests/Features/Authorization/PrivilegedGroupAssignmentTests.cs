@@ -32,6 +32,7 @@ public sealed class PrivilegedGroupAssignmentTests
             new FakeUnitOfWork(),
             new FixedClock(Now),
             new FakeActor(Guid.NewGuid()),
+            new AllowAllDelegation(),
             new PassThroughAssignUserValidator());
 
         var result = await handler.HandleAsync(
@@ -52,7 +53,11 @@ public sealed class PrivilegedGroupAssignmentTests
             "Manage groups",
             "authorization",
             "groups.write",
-            Now);
+            PermissionScopeMode.Global,
+            Now,
+            "authorization.groups",
+            PermissionRiskLevel.Critical,
+            isSystemManaged: true);
         var store = new FakeAdminStore(group, actorIsPrivileged: true, permission);
         var handler = new AssignGroupPermission(
             store,
@@ -60,6 +65,7 @@ public sealed class PrivilegedGroupAssignmentTests
             new FakeUnitOfWork(),
             new FixedClock(Now),
             new FakeActor(Guid.NewGuid()),
+            new AllowAllDelegation(),
             new PassThroughAssignPermissionValidator());
 
         var result = await handler.HandleAsync(
@@ -82,6 +88,8 @@ public sealed class PrivilegedGroupAssignmentTests
             new FakeAuditor(),
             new FakeUnitOfWork(),
             new FixedClock(Now),
+            new FakeActor(Guid.NewGuid()),
+            new AllowAllDelegation(),
             new PassThroughAssignOuValidator());
 
         var result = await handler.HandleAsync(
@@ -92,6 +100,30 @@ public sealed class PrivilegedGroupAssignmentTests
         Assert.Equal(
             AuthorizationErrors.PrivilegedGroupOrganizationUnitForbidden,
             result.Error);
+    }
+
+    [Fact]
+    public async Task RevokeGroupOrganizationUnit_WhenGroupPrivileged_ReturnsForbidden()
+    {
+        var group = UserGroup.CreatePrivileged("System Administrators", null, Now);
+        var store = new FakeAdminStore(group, actorIsPrivileged: true);
+        var handler = new RevokeGroupOrganizationUnit(
+            store,
+            new FakeAuditor(),
+            new FakeUnitOfWork(),
+            new FakeActor(Guid.NewGuid()),
+            new AllowAllDelegation(),
+            new PassThroughRevokeOuValidator());
+
+        var result = await handler.HandleAsync(
+            new RevokeGroupOrganizationUnitRequest(group.Id, Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(
+            AuthorizationErrors.PrivilegedGroupOrganizationUnitForbidden,
+            result.Error);
+        Assert.False(store.GroupOuRemoved);
     }
 
     [Fact]
@@ -111,6 +143,7 @@ public sealed class PrivilegedGroupAssignmentTests
             new FakeAuditor(),
             new FakeUnitOfWork(),
             new FakeActor(Guid.NewGuid()),
+            new AllowAllDelegation(),
             new PassThroughRevokeUserValidator());
 
         var result = await handler.HandleAsync(
@@ -131,8 +164,32 @@ public sealed class PrivilegedGroupAssignmentTests
     private sealed class PassThroughAssignOuValidator
         : AbstractValidator<AssignGroupOrganizationUnitRequest>;
 
+    private sealed class PassThroughRevokeOuValidator
+        : AbstractValidator<RevokeGroupOrganizationUnitRequest>;
+
     private sealed class PassThroughRevokeUserValidator
         : AbstractValidator<RevokeUserFromGroupRequest>;
+
+    private sealed class AllowAllDelegation : IDelegationAuthorityService
+    {
+        public Task<Result?> EnsureCanDelegatePermissionAsync(
+            Guid? actorUserId,
+            PermissionDefinition permission,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<Result?>(null);
+
+        public Task<Result?> EnsureCanAssignOrganizationUnitScopeAsync(
+            Guid? actorUserId,
+            Guid organizationUnitId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<Result?>(null);
+
+        public Task<Result?> EnsureCanManageGroupUserAssignmentAsync(
+            Guid? actorUserId,
+            UserGroup group,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<Result?>(null);
+    }
 
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock
     {
@@ -234,6 +291,8 @@ public sealed class PrivilegedGroupAssignmentTests
 
         public bool MembershipRemoved { get; private set; }
 
+        public bool GroupOuRemoved { get; private set; }
+
         public Task<PermissionDefinition?> FindPermissionByIdAsync(
             Guid id,
             CancellationToken cancellationToken) =>
@@ -290,6 +349,13 @@ public sealed class PrivilegedGroupAssignmentTests
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<PageResult<OrganizationUnit>> ListOrganizationUnitsByIdsAsync(
+            PageRequest page,
+            IReadOnlyCollection<Guid> organizationUnitIds,
+            bool? isActive,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task AddOrganizationUnitAsync(
             OrganizationUnit unit,
             CancellationToken cancellationToken) =>
@@ -336,13 +402,18 @@ public sealed class PrivilegedGroupAssignmentTests
             return Task.CompletedTask;
         }
 
-        public Task<bool> RemoveUserGroupMembershipAsync(
+        public Task<MembershipRemoval> TryRemoveUserGroupMembershipAsync(
             Guid userId,
             Guid groupId,
             CancellationToken cancellationToken)
         {
+            if (activeMemberCount <= 1 && group.IsPrivileged && group.IsActive)
+            {
+                return Task.FromResult(MembershipRemoval.LastPrivilegedMember);
+            }
+
             MembershipRemoved = true;
-            return Task.FromResult(true);
+            return Task.FromResult(MembershipRemoval.Removed);
         }
         public Task<bool> GroupOrganizationUnitExistsAsync(
             Guid groupId,
@@ -358,8 +429,43 @@ public sealed class PrivilegedGroupAssignmentTests
         public Task<bool> RemoveGroupOrganizationUnitAsync(
             Guid groupId,
             Guid organizationUnitId,
+            CancellationToken cancellationToken)
+        {
+            GroupOuRemoved = true;
+            return Task.FromResult(true);
+        }
+
+        public Task<IReadOnlyList<Guid>> ListGroupOrganizationUnitIdsAsync(
+            Guid groupId,
             CancellationToken cancellationToken) =>
-            Task.FromResult(false);
+            Task.FromResult<IReadOnlyList<Guid>>([]);
+
+        public Task<UserOrganizationUnit?> FindUserOrganizationUnitAsync(
+            Guid userId,
+            Guid organizationUnitId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<UserOrganizationUnit?>(null);
+
+        public Task<UserOrganizationUnit?> FindActivePrimaryUserOrganizationUnitAsync(
+            Guid userId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<UserOrganizationUnit?>(null);
+
+        public Task AddUserOrganizationUnitAsync(
+            UserOrganizationUnit membership,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task<IReadOnlyList<UserOrganizationUnit>> ListUserOrganizationUnitsAsync(
+            Guid userId,
+            bool activeOnly,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<UserOrganizationUnit>>([]);
+
+        public Task<IReadOnlyList<PermissionDefinition>> ListActivePermissionsByCodesAsync(
+            IReadOnlyCollection<string> codes,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<PermissionDefinition>>([]);
 
         public Task<IReadOnlyList<Guid>> GetDescendantOrganizationUnitIdsAsync(
             Guid rootOrganizationUnitId,

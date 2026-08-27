@@ -130,7 +130,10 @@ internal sealed class AuthorizationDecisionService(
                 return null;
             }
 
-            return JsonSerializer.Deserialize<UserAuthorizationContext>(bytes, SerializerOptions);
+            var deserialized = JsonSerializer.Deserialize<UserAuthorizationContext>(
+                bytes,
+                SerializerOptions);
+            return deserialized?.WithNormalizedScopes();
         }
         catch (Exception exception)
         {
@@ -194,6 +197,9 @@ internal sealed class AuthorizationDecisionService(
             return null;
         }
 
+        // Agent C: UserOrganizationUnit is organizational membership metadata only.
+        // Do not merge it into AccessibleOrganizationUnitIds — group→OU scope remains the sole source.
+
         var memberships = await dbContext.UserGroupMemberships
             .AsNoTracking()
             .Where(membership => membership.UserId == userId)
@@ -202,7 +208,12 @@ internal sealed class AuthorizationDecisionService(
 
         if (memberships.Count == 0)
         {
-            return new UserAuthorizationContext(userId, [], [], []);
+            return new UserAuthorizationContext(
+                userId,
+                [],
+                [],
+                [],
+                UserAuthorizationContext.EmptyPermissionScopes);
         }
 
         var groups = await dbContext.UserGroups
@@ -214,10 +225,15 @@ internal sealed class AuthorizationDecisionService(
         var activeGroupIds = groups.Select(group => group.Id).ToArray();
         if (activeGroupIds.Length == 0)
         {
-            return new UserAuthorizationContext(userId, [], [], []);
+            return new UserAuthorizationContext(
+                userId,
+                [],
+                [],
+                [],
+                UserAuthorizationContext.EmptyPermissionScopes);
         }
 
-        var permissions = await dbContext.GroupPermissions
+        var permissionRows = await dbContext.GroupPermissions
             .AsNoTracking()
             .Where(assignment => activeGroupIds.Contains(assignment.GroupId))
             .Join(
@@ -225,10 +241,20 @@ internal sealed class AuthorizationDecisionService(
                     .Where(permission => permission.IsActive),
                 assignment => assignment.PermissionId,
                 permission => permission.Id,
-                (_, permission) => permission.Code)
+                (_, permission) => new { permission.Code, permission.ScopeMode })
             .Distinct()
-            .OrderBy(code => code)
             .ToListAsync(cancellationToken);
+
+        var permissionScopeByCode = permissionRows
+            .GroupBy(row => row.Code, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First().ScopeMode,
+                StringComparer.Ordinal);
+
+        var permissions = permissionScopeByCode.Keys
+            .OrderBy(code => code, StringComparer.Ordinal)
+            .ToArray();
 
         var scopeRoots = await dbContext.GroupOrganizationUnits
             .AsNoTracking()
@@ -251,6 +277,7 @@ internal sealed class AuthorizationDecisionService(
             userId,
             groups.Select(group => group.Name).OrderBy(name => name).ToArray(),
             permissions,
-            accessibleUnitIds);
+            accessibleUnitIds,
+            permissionScopeByCode);
     }
 }

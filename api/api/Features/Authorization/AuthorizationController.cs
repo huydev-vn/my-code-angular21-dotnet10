@@ -33,6 +33,7 @@ public sealed class AuthorizationController(
     GetOrganizationUnit getOrganizationUnit,
     ListOrganizationUnits listOrganizationUnits,
     UpdateOrganizationUnit updateOrganizationUnit,
+    MoveOrganizationUnit moveOrganizationUnit,
     SetOrganizationUnitActive setOrganizationUnitActive,
     AssignGroupPermission assignGroupPermission,
     AssignUserToGroup assignUserToGroup,
@@ -41,7 +42,13 @@ public sealed class AuthorizationController(
     RevokeUserFromGroup revokeUserFromGroup,
     RevokeGroupOrganizationUnit revokeGroupOrganizationUnit,
     ListAuthorizationAuditEvents listAuthorizationAuditEvents,
-    GetUserAuthorizationContext getUserAuthorizationContext) : ControllerBase
+    GetUserAuthorizationContext getUserAuthorizationContext,
+    ListAccessibleOrganizationUnits listAccessibleOrganizationUnits,
+    // Agent C
+    AssignUserOrganizationUnit assignUserOrganizationUnit,
+    RevokeUserOrganizationUnit revokeUserOrganizationUnit,
+    ListUserOrganizationUnits listUserOrganizationUnits,
+    GetUserCapabilities getUserCapabilities) : ControllerBase
 {
     /// <summary>Lists the permission catalog. Requires authorization.permissions.read.</summary>
     [RequirePermission(SystemPermissions.AuthorizationPermissionsRead)]
@@ -225,6 +232,24 @@ public sealed class AuthorizationController(
         (await updateOrganizationUnit.HandleAsync(id, request, cancellationToken))
             .ToActionResult(this);
 
+    /// <summary>
+    /// Moves an organization unit under a new parent (null = root).
+    /// Requires authorization.organization-units.write. Non-privileged actors must keep both
+    /// the unit and new parent within their accessible organization-unit set.
+    /// </summary>
+    [RequirePermission(SystemPermissions.AuthorizationOrganizationUnitsWrite)]
+    [HttpPost("organization-units/{id:guid}/move")]
+    [ProducesResponseType(typeof(OrganizationUnitResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> MoveOrganizationUnit(
+        Guid id,
+        [FromBody] MoveOrganizationUnitRequest request,
+        CancellationToken cancellationToken) =>
+        (await moveOrganizationUnit.HandleAsync(id, request, cancellationToken))
+            .ToActionResult(this);
+
     /// <summary>Activates or deactivates an organization unit. Requires authorization.organization-units.write.</summary>
     [RequirePermission(SystemPermissions.AuthorizationOrganizationUnitsWrite)]
     [HttpPost("organization-units/{id:guid}/active")]
@@ -237,10 +262,16 @@ public sealed class AuthorizationController(
         (await setOrganizationUnitActive.HandleAsync(id, isActive, cancellationToken))
             .ToActionResult(this);
 
-    /// <summary>Assigns a permission to a group. Requires authorization.groups.write.</summary>
-    [RequirePermission(SystemPermissions.AuthorizationGroupsWrite)]
+    /// <summary>
+    /// Assigns a permission to a group. System admins: authorization.groups.write;
+    /// regional admins: authorization.assignments.delegate (subject to grant containment).
+    /// </summary>
+    [RequireAnyPermission(
+        SystemPermissions.AuthorizationGroupsWrite,
+        SystemPermissions.AuthorizationAssignmentsDelegate)]
     [HttpPost("groups/permissions")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignGroupPermission(
@@ -248,20 +279,32 @@ public sealed class AuthorizationController(
         CancellationToken cancellationToken) =>
         (await assignGroupPermission.HandleAsync(request, cancellationToken)).ToActionResult(this);
 
-    /// <summary>Revokes a permission from a group. Requires authorization.groups.write.</summary>
-    [RequirePermission(SystemPermissions.AuthorizationGroupsWrite)]
+    /// <summary>
+    /// Revokes a permission from a group. Same two-tier gate as assign; revoke requires
+    /// the permission still be delegatable by the actor (or privileged).
+    /// </summary>
+    [RequireAnyPermission(
+        SystemPermissions.AuthorizationGroupsWrite,
+        SystemPermissions.AuthorizationAssignmentsDelegate)]
     [HttpDelete("groups/permissions")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RevokeGroupPermission(
         [FromBody] RevokeGroupPermissionRequest request,
         CancellationToken cancellationToken) =>
         (await revokeGroupPermission.HandleAsync(request, cancellationToken)).ToActionResult(this);
 
-    /// <summary>Assigns a user to a group. Requires authorization.groups.write.</summary>
-    [RequirePermission(SystemPermissions.AuthorizationGroupsWrite)]
+    /// <summary>
+    /// Assigns a user to a group. System: groups.write; regional: assignments.delegate
+    /// (group OU roots must be within the actor's accessible set).
+    /// </summary>
+    [RequireAnyPermission(
+        SystemPermissions.AuthorizationGroupsWrite,
+        SystemPermissions.AuthorizationAssignmentsDelegate)]
     [HttpPost("groups/users")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignUserToGroup(
@@ -269,20 +312,31 @@ public sealed class AuthorizationController(
         CancellationToken cancellationToken) =>
         (await assignUserToGroup.HandleAsync(request, cancellationToken)).ToActionResult(this);
 
-    /// <summary>Removes a user from a group. Requires authorization.groups.write.</summary>
-    [RequirePermission(SystemPermissions.AuthorizationGroupsWrite)]
+    /// <summary>
+    /// Removes a user from a group. Same two-tier gate and group containment as assign.
+    /// </summary>
+    [RequireAnyPermission(
+        SystemPermissions.AuthorizationGroupsWrite,
+        SystemPermissions.AuthorizationAssignmentsDelegate)]
     [HttpDelete("groups/users")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RevokeUserFromGroup(
         [FromBody] RevokeUserFromGroupRequest request,
         CancellationToken cancellationToken) =>
         (await revokeUserFromGroup.HandleAsync(request, cancellationToken)).ToActionResult(this);
 
-    /// <summary>Scopes a group to an organization unit. Requires authorization.organization-units.write.</summary>
-    [RequirePermission(SystemPermissions.AuthorizationOrganizationUnitsWrite)]
+    /// <summary>
+    /// Scopes a group to an organization unit. System: organization-units.write;
+    /// regional: assignments.delegate (OU must be in actor accessible set).
+    /// </summary>
+    [RequireAnyPermission(
+        SystemPermissions.AuthorizationOrganizationUnitsWrite,
+        SystemPermissions.AuthorizationAssignmentsDelegate)]
     [HttpPost("groups/organization-units")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignGroupOrganizationUnit(
@@ -291,10 +345,15 @@ public sealed class AuthorizationController(
         (await assignGroupOrganizationUnit.HandleAsync(request, cancellationToken))
             .ToActionResult(this);
 
-    /// <summary>Removes organization-unit scope from a group. Requires authorization.organization-units.write.</summary>
-    [RequirePermission(SystemPermissions.AuthorizationOrganizationUnitsWrite)]
+    /// <summary>
+    /// Removes organization-unit scope from a group. Same two-tier gate and OU containment.
+    /// </summary>
+    [RequireAnyPermission(
+        SystemPermissions.AuthorizationOrganizationUnitsWrite,
+        SystemPermissions.AuthorizationAssignmentsDelegate)]
     [HttpDelete("groups/organization-units")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RevokeGroupOrganizationUnit(
         [FromBody] RevokeGroupOrganizationUnitRequest request,
@@ -337,4 +396,100 @@ public sealed class AuthorizationController(
         var result = await getUserAuthorizationContext.HandleAsync(userId.Value, cancellationToken);
         return result.ToActionResult(this);
     }
+
+    /// <summary>
+    /// Returns UI capabilities for the current user: granted permission metadata,
+    /// group→OU accessible ids, and separate user↔OU membership rows.
+    /// Authenticated callers only. Client should use this for show/hide only — never as security.
+    /// </summary>
+    [HttpGet("me/capabilities")]
+    [ProducesResponseType(typeof(UserCapabilitiesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> MeCapabilities(CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var result = await getUserCapabilities.HandleAsync(userId.Value, cancellationToken);
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// Lists organization units within the caller's accessible set only (fail closed → empty).
+    /// Authenticated callers only; does not require Global authorization.organization-units.read.
+    /// Admin full-tree listing remains GET organization-units.
+    /// </summary>
+    [HttpGet("me/organization-units")]
+    [ProducesResponseType(typeof(OrganizationUnitListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> MeOrganizationUnits(
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        [FromQuery] bool? isActive,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return Ok(await listAccessibleOrganizationUnits.HandleAsync(
+            userId.Value,
+            PageRequest.Create(page, pageSize),
+            isActive,
+            cancellationToken));
+    }
+
+    /// <summary>
+    /// Assigns a user to an organization unit (Primary/Additional membership metadata).
+    /// Does not grant permissions or data access. System: organization-units.write;
+    /// regional: users-organization-units.manage (OU must be in actor accessible set).
+    /// </summary>
+    [RequireAnyPermission(
+        SystemPermissions.AuthorizationOrganizationUnitsWrite,
+        SystemPermissions.AuthorizationUsersOrganizationUnitsManage)]
+    [HttpPost("users/organization-units")]
+    [ProducesResponseType(typeof(UserOrganizationUnitResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AssignUserOrganizationUnit(
+        [FromBody] AssignUserOrganizationUnitRequest request,
+        CancellationToken cancellationToken) =>
+        (await assignUserOrganizationUnit.HandleAsync(request, cancellationToken))
+            .ToActionResult(this);
+
+    /// <summary>
+    /// Deactivates a user↔OU membership. Does not change permissions or group scope.
+    /// Same two-tier gate and OU containment as assign.
+    /// </summary>
+    [RequireAnyPermission(
+        SystemPermissions.AuthorizationOrganizationUnitsWrite,
+        SystemPermissions.AuthorizationUsersOrganizationUnitsManage)]
+    [HttpDelete("users/organization-units")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RevokeUserOrganizationUnit(
+        [FromBody] RevokeUserOrganizationUnitRequest request,
+        CancellationToken cancellationToken) =>
+        (await revokeUserOrganizationUnit.HandleAsync(request, cancellationToken))
+            .ToActionResult(this);
+
+    /// <summary>
+    /// Lists organization-unit memberships for a user. Requires authorization.organization-units.read.
+    /// </summary>
+    [RequirePermission(SystemPermissions.AuthorizationOrganizationUnitsRead)]
+    [HttpGet("users/{userId:guid}/organization-units")]
+    [ProducesResponseType(typeof(IReadOnlyList<UserOrganizationUnitResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListUserOrganizationUnits(
+        Guid userId,
+        [FromQuery] bool activeOnly = true,
+        CancellationToken cancellationToken = default) =>
+        Ok(await listUserOrganizationUnits.HandleAsync(userId, activeOnly, cancellationToken));
 }

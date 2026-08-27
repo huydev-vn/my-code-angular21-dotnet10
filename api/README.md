@@ -18,11 +18,13 @@ Auth/authorization handoff guide for feature developers:
 
 Business authorization is a dynamic matrix:
 
-- **Permission catalog** — runtime entries such as `users.read`, `invoice.export.excel`
+- **Permission catalog** — runtime entries such as `users.read`, `invoice.export.excel`, with admin metadata (`Resource`, `ScopeMode`, `RiskLevel`). Catalog rows do not invent endpoints or policies by themselves.
 - **User groups** — business groups such as leadership or department teams
 - **Group permissions** — which actions a group may perform
 - **Organization units** — nested tree with unlimited depth
 - **Group unit scope** — a group assigned to unit X can access X and all descendants
+- **User↔OU membership** — Primary/Additional organizational affiliation metadata only; does **not** grant permissions or expand accessible OU scope
+- **Capabilities API** — `GET /api/authorization/me/capabilities` returns granted permission metadata + separate user↔OU rows for UI show/hide (not security)
 
 ASP.NET Core Identity handles authentication (users, passwords, refresh tokens).
 Authorization is resolved at runtime from the database, not from static role claims
@@ -60,10 +62,13 @@ Optional:
 - `Identity__RunSeeders=true` to run permission/admin seeding on startup
 - `Identity__AllowRegistration=true` to allow self-service registration
 
-Local infrastructure (PostgreSQL + Redis):
+Local infrastructure:
+
+- PostgreSQL: Windows host on `localhost:5432` (manage with Windows pgAdmin)
+- Redis: Docker Compose on `localhost:6379`
 
 ```powershell
-docker compose up -d postgres redis
+docker compose up -d redis
 ```
 
 ```powershell

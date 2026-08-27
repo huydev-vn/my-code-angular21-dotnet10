@@ -25,6 +25,12 @@ internal sealed class PermissionAuthorizationPolicyProvider(
                 BuildPolicy(new PermissionRequirement(unitPermission, routeKey)));
         }
 
+        if (PermissionPolicies.TryParseAnyPolicy(policyName, out var anyPermissions))
+        {
+            return Task.FromResult<AuthorizationPolicy?>(
+                BuildAnyPolicy(new AnyPermissionRequirement(anyPermissions)));
+        }
+
         if (policyName.StartsWith(PermissionPolicies.Prefix, StringComparison.Ordinal))
         {
             var permission = policyName[PermissionPolicies.Prefix.Length..];
@@ -36,6 +42,13 @@ internal sealed class PermissionAuthorizationPolicyProvider(
     }
 
     private static AuthorizationPolicy BuildPolicy(PermissionRequirement requirement) =>
+        new AuthorizationPolicyBuilder()
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .AddRequirements(requirement)
+            .Build();
+
+    private static AuthorizationPolicy BuildAnyPolicy(AnyPermissionRequirement requirement) =>
         new AuthorizationPolicyBuilder()
             .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
             .RequireAuthenticatedUser()

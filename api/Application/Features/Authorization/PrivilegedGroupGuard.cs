@@ -40,9 +40,11 @@ internal static class PrivilegedGroupGuard
             : Result<T>.Failure(failure.Error!);
     }
 
-    public static Result? EnsurePrivilegedPermissionAssignable(UserGroup group, string permissionCode)
+    public static Result? EnsurePrivilegedPermissionAssignable(
+        UserGroup group,
+        PermissionDefinition permission)
     {
-        if (!SystemPermissions.IsPrivilegedCatalogPermission(permissionCode))
+        if (!SystemPermissions.IsPrivilegedCatalogPermission(permission))
         {
             return null;
         }

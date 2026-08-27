@@ -9,13 +9,11 @@ internal sealed class CorrelationIdMiddleware(RequestDelegate next)
 {
     public const string HeaderName = "X-Correlation-Id";
 
+    private const int MaxLength = 128;
+
     public async Task InvokeAsync(HttpContext context)
     {
-        var correlationId = context.Request.Headers[HeaderName].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(correlationId))
-        {
-            correlationId = context.TraceIdentifier;
-        }
+        var correlationId = ResolveCorrelationId(context);
 
         context.Items[HeaderName] = correlationId;
         context.Response.OnStarting(() =>
@@ -28,5 +26,38 @@ internal sealed class CorrelationIdMiddleware(RequestDelegate next)
         {
             await next(context);
         }
+    }
+
+    private static string ResolveCorrelationId(HttpContext context)
+    {
+        var raw = context.Request.Headers[HeaderName].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return context.TraceIdentifier;
+        }
+
+        var trimmed = raw.Trim();
+        if (trimmed.Length > MaxLength || !IsSafeCorrelationId(trimmed))
+        {
+            return context.TraceIdentifier;
+        }
+
+        return trimmed;
+    }
+
+    private static bool IsSafeCorrelationId(string value)
+    {
+        foreach (var character in value)
+        {
+            if (char.IsAsciiLetterOrDigit(character) ||
+                character is '-' or '_' or '.')
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 }

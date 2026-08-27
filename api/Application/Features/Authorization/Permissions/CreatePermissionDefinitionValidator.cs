@@ -22,5 +22,14 @@ internal sealed class CreatePermissionDefinitionValidator
 
         RuleFor(request => request.Action)
             .MaximumLength(128);
+
+        RuleFor(request => request.Resource)
+            .MaximumLength(128);
+
+        RuleFor(request => request.ScopeMode)
+            .IsInEnum();
+
+        RuleFor(request => request.RiskLevel)
+            .IsInEnum();
     }
 }

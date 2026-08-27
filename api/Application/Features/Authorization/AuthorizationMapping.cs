@@ -13,6 +13,10 @@ internal static class AuthorizationMapping
             permission.Name,
             permission.Module,
             permission.Action,
+            permission.Resource,
+            permission.ScopeMode,
+            permission.RiskLevel,
+            permission.IsSystemManaged,
             permission.IsActive,
             permission.CreatedAt);
 
@@ -41,4 +45,22 @@ internal static class AuthorizationMapping
             context.GroupNames,
             context.PermissionCodes,
             context.AccessibleOrganizationUnitIds);
+
+    public static UserOrganizationUnitResponse ToResponse(this UserOrganizationUnit membership) =>
+        new(
+            membership.UserId,
+            membership.OrganizationUnitId,
+            membership.Relationship,
+            membership.IsActive,
+            membership.AssignedAt);
+
+    public static PermissionCapabilityResponse ToCapabilityResponse(
+        this PermissionDefinition permission) =>
+        new(
+            permission.Code,
+            permission.Name,
+            permission.Resource,
+            permission.Action,
+            permission.ScopeMode,
+            permission.RiskLevel);
 }

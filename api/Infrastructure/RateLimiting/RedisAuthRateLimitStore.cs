@@ -18,7 +18,8 @@ public sealed class RedisAuthRateLimitStore(
         string partitionKey,
         int permitLimit,
         TimeSpan window,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool failClosed = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var key = $"{options.Value.KeyPrefix}ratelimit:auth:{partitionKey}";
@@ -35,8 +36,17 @@ public sealed class RedisAuthRateLimitStore(
         }
         catch (Exception exception)
         {
-            // Fail open to the process-local ASP.NET rate limiter rather than
-            // blocking all authentication when Redis is briefly unavailable.
+            if (failClosed)
+            {
+                // Login/MFA: prefer denying traffic over unbounded brute-force when Redis is down.
+                logger.LogError(
+                    exception,
+                    "Redis auth rate-limit check failed for {PartitionKey}; failing closed.",
+                    partitionKey);
+                return false;
+            }
+
+            // Refresh/revoke: fail open to the process-local ASP.NET rate limiter.
             logger.LogWarning(
                 exception,
                 "Redis auth rate-limit check failed for {PartitionKey}; deferring to local limiter.",

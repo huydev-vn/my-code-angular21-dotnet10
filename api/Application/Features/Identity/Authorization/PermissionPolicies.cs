@@ -7,6 +7,8 @@ public static class PermissionPolicies
 
     public const string UnitPrefix = "permission-unit:";
 
+    public const string AnyPrefix = "permission-any:";
+
     public const string DefaultOrganizationUnitRouteKey = "organizationUnitId";
 
     public static string Name(string permission) => Prefix + permission;
@@ -15,6 +17,23 @@ public static class PermissionPolicies
         string permission,
         string routeKey = DefaultOrganizationUnitRouteKey) =>
         $"{UnitPrefix}{permission}|{routeKey}";
+
+    /// <summary>
+    /// Policy that succeeds when the caller holds any of the listed permissions
+    /// (e.g. system Critical write OR regional delegate).
+    /// </summary>
+    public static string Any(params string[] permissions)
+    {
+        ArgumentNullException.ThrowIfNull(permissions);
+        if (permissions.Length == 0)
+        {
+            throw new ArgumentException(
+                "At least one permission is required.",
+                nameof(permissions));
+        }
+
+        return AnyPrefix + string.Join('|', permissions);
+    }
 
     public static bool TryParseUnitPolicy(
         string policyName,
@@ -40,5 +59,23 @@ public static class PermissionPolicies
         permission = remainder[..separator];
         routeKey = remainder[(separator + 1)..];
         return permission.Length > 0 && routeKey.Length > 0;
+    }
+
+    public static bool TryParseAnyPolicy(
+        string policyName,
+        out string[] permissions)
+    {
+        permissions = [];
+
+        if (!policyName.StartsWith(AnyPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var remainder = policyName[AnyPrefix.Length..];
+        permissions = remainder.Split(
+            '|',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return permissions.Length > 0;
     }
 }

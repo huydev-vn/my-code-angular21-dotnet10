@@ -46,6 +46,28 @@ public sealed class OrganizationUnitHierarchyTests
     }
 
     [Fact]
+    public void CollectAccessibleIds_unions_multiple_roots_and_excludes_siblings()
+    {
+        var rootA = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var childA = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var rootB = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var sibling = Guid.Parse("44444444-4444-4444-4444-444444444444");
+
+        var units = new (Guid Id, Guid? ParentId)[]
+        {
+            (rootA, null),
+            (childA, rootA),
+            (rootB, null),
+            (sibling, null)
+        };
+
+        var accessible = OrganizationUnitHierarchy.CollectAccessibleIds([rootA, rootB], units);
+
+        Assert.Equal(new[] { rootA, childA, rootB }, accessible.ToArray());
+        Assert.DoesNotContain(sibling, accessible);
+    }
+
+    [Fact]
     public void WouldCreateCycle_detects_self_and_ancestor_loops()
     {
         var root = Guid.NewGuid();

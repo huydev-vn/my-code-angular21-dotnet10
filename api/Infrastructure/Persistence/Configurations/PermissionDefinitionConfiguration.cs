@@ -1,6 +1,7 @@
 using Domain.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Infrastructure.Persistence.Configurations;
 
@@ -28,10 +29,34 @@ internal sealed class PermissionDefinitionConfiguration
             .IsRequired();
 
         builder.Property(permission => permission.Module)
-            .HasMaxLength(128);
+            .HasMaxLength(128)
+            .HasComment("Display/grouping module; Resource is the stable enforcement key.");
 
         builder.Property(permission => permission.Action)
             .HasMaxLength(128);
+
+        builder.Property(permission => permission.Resource)
+            .HasMaxLength(128)
+            .HasComment("Stable resource key for future scope enforcement (e.g. users, authorization.permissions).");
+
+        builder.Property(permission => permission.ScopeMode)
+            .HasMaxLength(32)
+            .HasConversion(new EnumToStringConverter<PermissionScopeMode>())
+            .IsRequired()
+            .HasDefaultValue(PermissionScopeMode.Global)
+            .HasComment("None | OrganizationUnit | Global — catalog metadata for scope enforcement.");
+
+        builder.Property(permission => permission.RiskLevel)
+            .HasMaxLength(32)
+            .HasConversion(new EnumToStringConverter<PermissionRiskLevel>())
+            .IsRequired()
+            .HasDefaultValue(PermissionRiskLevel.Medium)
+            .HasComment("Low | Medium | High | Critical — Critical is privileged-assignable-only.");
+
+        builder.Property(permission => permission.IsSystemManaged)
+            .IsRequired()
+            .HasDefaultValue(false)
+            .HasComment("True for seeded system permissions; Code remains immutable either way.");
 
         builder.Property(permission => permission.Version)
             .IsConcurrencyToken()

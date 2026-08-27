@@ -12,14 +12,30 @@ internal sealed class RedisAuthorizationStateVersion(
     IOptions<RedisOptions> options,
     ILogger<RedisAuthorizationStateVersion> logger) : IAuthorizationStateVersion
 {
+    /// <summary>
+    /// Matches <see cref="AuthorizationDecisionService"/> max cache TTL so a failed
+    /// bump forces PostgreSQL reads until any stale distributed entries expire.
+    /// </summary>
+    private static readonly TimeSpan CacheBypassTtl = TimeSpan.FromSeconds(300);
+
     private string VersionKey => $"{options.Value.KeyPrefix}authz:version";
+
+    private string CacheBypassKey => $"{options.Value.KeyPrefix}authz:cache-bypass";
 
     public async Task<long?> GetCurrentAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var value = await multiplexer.GetDatabase().StringGetAsync(VersionKey);
+            var db = multiplexer.GetDatabase();
+            if (await db.KeyExistsAsync(CacheBypassKey))
+            {
+                logger.LogWarning(
+                    "Authorization cache bypass is active; loading contexts from PostgreSQL.");
+                return null;
+            }
+
+            var value = await db.StringGetAsync(VersionKey);
             return value.HasValue ? (long)value : 0L;
         }
         catch (Exception exception)
@@ -36,15 +52,35 @@ internal sealed class RedisAuthorizationStateVersion(
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            await multiplexer.GetDatabase().StringIncrementAsync(VersionKey);
+            var db = multiplexer.GetDatabase();
+            await db.StringIncrementAsync(VersionKey);
+            // Clear any prior bypass so replicas can resume versioned caching.
+            await db.KeyDeleteAsync(CacheBypassKey);
         }
         catch (Exception exception)
         {
-            // PostgreSQL already committed; fail closed on subsequent cache reads by
-            // not updating the shared version is worse than logging — rethrow so the
-            // request surfaces as an error and operators notice Redis outage.
+            // PostgreSQL already committed. Mark cache untrusted so subsequent
+            // GetCurrentAsync returns null and DecisionService skips stale Redis entries.
+            await TryActivateCacheBypassAsync();
             logger.LogError(exception, "Redis authorization version bump failed after commit.");
             throw;
+        }
+    }
+
+    private async Task TryActivateCacheBypassAsync()
+    {
+        try
+        {
+            await multiplexer.GetDatabase().StringSetAsync(
+                CacheBypassKey,
+                "1",
+                CacheBypassTtl);
+        }
+        catch (Exception bypassException)
+        {
+            logger.LogError(
+                bypassException,
+                "Failed to activate authorization cache bypass after bump failure.");
         }
     }
 }

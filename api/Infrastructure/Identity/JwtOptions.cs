@@ -14,7 +14,7 @@ public sealed class JwtOptions
 
     public required string SigningKey { get; init; }
 
-    public int AccessTokenMinutes { get; init; } = 15;
+    public int AccessTokenMinutes { get; init; } = 10;
 
     public int RefreshTokenDays { get; init; } = 14;
 

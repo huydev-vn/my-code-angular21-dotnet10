@@ -12,6 +12,7 @@ public static class AuthorizationAuditActions
     public const string GroupDeactivated = "group.deactivated";
     public const string OrganizationUnitCreated = "organization-unit.created";
     public const string OrganizationUnitUpdated = "organization-unit.updated";
+    public const string OrganizationUnitMoved = "organization-unit.moved";
     public const string OrganizationUnitActivated = "organization-unit.activated";
     public const string OrganizationUnitDeactivated = "organization-unit.deactivated";
     public const string GroupPermissionAssigned = "group.permission.assigned";
@@ -20,4 +21,6 @@ public static class AuthorizationAuditActions
     public const string UserGroupRevoked = "group.user.revoked";
     public const string GroupOrganizationUnitAssigned = "group.organization-unit.assigned";
     public const string GroupOrganizationUnitRevoked = "group.organization-unit.revoked";
+    public const string UserOrganizationUnitAssigned = "user.organization-unit.assigned";
+    public const string UserOrganizationUnitRevoked = "user.organization-unit.revoked";
 }

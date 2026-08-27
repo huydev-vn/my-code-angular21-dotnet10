@@ -177,14 +177,42 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsSystemManaged")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasComment("True for seeded system permissions; Code remains immutable either way.");
+
                     b.Property<string>("Module")
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("character varying(128)")
+                        .HasComment("Display/grouping module; Resource is the stable enforcement key.");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Resource")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasComment("Stable resource key for future scope enforcement (e.g. users, authorization.permissions).");
+
+                    b.Property<string>("RiskLevel")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Medium")
+                        .HasComment("Low | Medium | High | Critical — Critical is privileged-assignable-only.");
+
+                    b.Property<string>("ScopeMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Global")
+                        .HasComment("None | OrganizationUnit | Global — catalog metadata for scope enforcement.");
 
                     b.Property<int>("Version")
                         .IsConcurrencyToken()
@@ -265,6 +293,43 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("UserGroupMemberships", null, t =>
                         {
                             t.HasComment("Bảng nối user ↔ nhóm phân quyền: user thuộc group nào.");
+                        });
+                });
+
+            modelBuilder.Entity("Domain.Authorization.UserOrganizationUnit", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Relationship")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasComment("Primary | Additional — organizational affiliation only.");
+
+                    b.HasKey("UserId", "OrganizationUnitId");
+
+                    b.HasIndex("OrganizationUnitId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserOrganizationUnits_UserId_ActivePrimary")
+                        .HasFilter("\"IsActive\" = TRUE AND \"Relationship\" = 'Primary'");
+
+                    b.ToTable("UserOrganizationUnits", null, t =>
+                        {
+                            t.HasComment("User↔OU organizational membership (Primary/Additional). Does NOT grant permissions or data access; group→OU scope does.");
                         });
                 });
 
@@ -561,6 +626,21 @@ namespace Infrastructure.Persistence.Migrations
                     b.HasOne("Domain.Authorization.UserGroup", null)
                         .WithMany()
                         .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Domain.Authorization.UserOrganizationUnit", b =>
+                {
+                    b.HasOne("Domain.Authorization.OrganizationUnit", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationUnitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

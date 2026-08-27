@@ -83,6 +83,49 @@ Authorization: Bearer {{accessToken}}
 
 ###
 
+### UI capabilities (permission metadata + user↔OU membership; not JWT)
+GET {{api_HostAddress}}/api/authorization/me/capabilities
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Accessible organization units for current user (caller-scoped; not admin full tree)
+GET {{api_HostAddress}}/api/authorization/me/organization-units?page=1&pageSize=50&isActive=true
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Assign user to organization unit (membership metadata only — no data access grant)
+POST {{api_HostAddress}}/api/authorization/users/organization-units
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "organizationUnitId": "{{organizationUnitId}}",
+  "relationship": "Primary"
+}
+
+###
+
+### List user organization-unit memberships
+GET {{api_HostAddress}}/api/authorization/users/{{userId}}/organization-units?activeOnly=true
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Revoke user organization-unit membership
+DELETE {{api_HostAddress}}/api/authorization/users/organization-units
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "organizationUnitId": "{{organizationUnitId}}"
+}
+
+###
+
 ### List permission catalog
 GET {{api_HostAddress}}/api/authorization/permissions
 Authorization: Bearer {{accessToken}}
@@ -191,6 +234,17 @@ Content-Type: application/json
   "name": "Ban quan ly du an dan dung va phat trien do thi so 1",
   "code": "BQLDA-1",
   "parentId": "{{organizationUnitId}}"
+}
+
+###
+
+### Move organization unit under a new parent (null = root)
+POST {{api_HostAddress}}/api/authorization/organization-units/{{organizationUnitId}}/move
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "parentId": "{{newParentOrganizationUnitId}}"
 }
 
 ###

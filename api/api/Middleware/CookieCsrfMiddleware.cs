@@ -6,8 +6,8 @@ namespace Api.Middleware;
 /// <summary>
 /// Defends cookie-authenticated identity endpoints against cross-site request forgery
 /// by requiring Origin/Referer to match configured Client:Origins when the refresh
-/// cookie is present, and by validating Origin/Referer on login/register when a
-/// browser sends one (login CSRF). Body-token clients without Origin are unaffected.
+/// cookie is present, and by requiring a trusted Origin/Referer on login/register/MFA
+/// (login CSRF). Body-token refresh/revoke without a cookie skips the Origin check.
 /// </summary>
 internal sealed class CookieCsrfMiddleware(RequestDelegate next, IConfiguration configuration)
 {
@@ -58,21 +58,17 @@ internal sealed class CookieCsrfMiddleware(RequestDelegate next, IConfiguration 
             return !string.IsNullOrWhiteSpace(RefreshTokenCookie.Read(request));
         }
 
-        // Browsers always send Origin on cross-site POSTs; reject untrusted ones
-        // so login/register/mfa cannot plant a session cookie via login CSRF.
+        // Browser POSTs that set a session cookie must present Origin or Referer.
+        // Missing both fails closed (login CSRF / session fixation via cookie plant).
         if (request.Path == LoginPath ||
             request.Path == RegisterPath ||
             request.Path == MfaVerifyPath)
         {
-            return HasOriginOrReferer(request);
+            return true;
         }
 
         return false;
     }
-
-    private static bool HasOriginOrReferer(HttpRequest request) =>
-        !string.IsNullOrWhiteSpace(request.Headers.Origin.ToString()) ||
-        !string.IsNullOrWhiteSpace(request.Headers.Referer.ToString());
 
     private static bool IsTrustedOrigin(HttpRequest request, IReadOnlyList<string> allowedOrigins)
     {

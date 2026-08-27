@@ -50,6 +50,16 @@ public interface IAuthorizationAdminStore
         bool? isActive,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Paged OU list restricted to the given ids (Agent B accessible-set listing).
+    /// Empty <paramref name="organizationUnitIds"/> returns an empty page without querying.
+    /// </summary>
+    Task<PageResult<OrganizationUnit>> ListOrganizationUnitsByIdsAsync(
+        PageRequest page,
+        IReadOnlyCollection<Guid> organizationUnitIds,
+        bool? isActive,
+        CancellationToken cancellationToken);
+
     Task AddOrganizationUnitAsync(
         OrganizationUnit unit,
         CancellationToken cancellationToken);
@@ -88,7 +98,11 @@ public interface IAuthorizationAdminStore
         UserGroupMembership membership,
         CancellationToken cancellationToken);
 
-    Task<bool> RemoveUserGroupMembershipAsync(
+    /// <summary>
+    /// Atomically removes a membership. For active privileged groups, serializes
+    /// on the group row and refuses when removal would leave zero members.
+    /// </summary>
+    Task<MembershipRemoval> TryRemoveUserGroupMembershipAsync(
         Guid userId,
         Guid groupId,
         CancellationToken cancellationToken);
@@ -105,6 +119,37 @@ public interface IAuthorizationAdminStore
     Task<bool> RemoveGroupOrganizationUnitAsync(
         Guid groupId,
         Guid organizationUnitId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns organization-unit root ids currently attached to the group (group→OU scope).
+    /// Empty when the group has no OU scope (global-style group).
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ListGroupOrganizationUnitIdsAsync(
+        Guid groupId,
+        CancellationToken cancellationToken);
+
+    // Agent C — user↔OU membership (organizational metadata; does not grant data access)
+    Task<UserOrganizationUnit?> FindUserOrganizationUnitAsync(
+        Guid userId,
+        Guid organizationUnitId,
+        CancellationToken cancellationToken);
+
+    Task<UserOrganizationUnit?> FindActivePrimaryUserOrganizationUnitAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    Task AddUserOrganizationUnitAsync(
+        UserOrganizationUnit membership,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<UserOrganizationUnit>> ListUserOrganizationUnitsAsync(
+        Guid userId,
+        bool activeOnly,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<PermissionDefinition>> ListActivePermissionsByCodesAsync(
+        IReadOnlyCollection<string> codes,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Guid>> GetDescendantOrganizationUnitIdsAsync(

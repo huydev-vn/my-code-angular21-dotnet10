@@ -24,11 +24,27 @@ internal sealed class RefreshTokenStore(AppDbContext dbContext) : IRefreshTokenS
         DateTimeOffset revokedAt,
         CancellationToken cancellationToken)
     {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(
+            cancellationToken);
+
+        var userId = await dbContext.RefreshTokens
+            .AsNoTracking()
+            .Where(token => token.FamilyId == familyId)
+            .Select(token => (Guid?)token.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (userId is Guid lockedUserId)
+        {
+            await AcquireUserRefreshLockAsync(lockedUserId, cancellationToken);
+        }
+
         await dbContext.RefreshTokens
             .Where(token => token.FamilyId == familyId && token.RevokedAt == null)
             .ExecuteUpdateAsync(
                 updates => updates.SetProperty(token => token.RevokedAt, revokedAt),
                 cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task RevokeAllForUserAsync(
@@ -36,11 +52,19 @@ internal sealed class RefreshTokenStore(AppDbContext dbContext) : IRefreshTokenS
         DateTimeOffset revokedAt,
         CancellationToken cancellationToken)
     {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(
+            cancellationToken);
+
+        // Logout wins: serialize against TryRotateAsync for the same user.
+        await AcquireUserRefreshLockAsync(userId, cancellationToken);
+
         await dbContext.RefreshTokens
             .Where(token => token.UserId == userId && token.RevokedAt == null)
             .ExecuteUpdateAsync(
                 updates => updates.SetProperty(token => token.RevokedAt, revokedAt),
                 cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<bool> TryRotateAsync(
@@ -51,6 +75,10 @@ internal sealed class RefreshTokenStore(AppDbContext dbContext) : IRefreshTokenS
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(
             cancellationToken);
+
+        // Serialize with RevokeAll / RevokeFamily so a concurrent logout cannot
+        // miss a newly inserted descendant token.
+        await AcquireUserRefreshLockAsync(current.UserId, cancellationToken);
 
         var affected = await dbContext.RefreshTokens
             .Where(token => token.Id == current.Id && token.RevokedAt == null)
@@ -100,5 +128,23 @@ internal sealed class RefreshTokenStore(AppDbContext dbContext) : IRefreshTokenS
         return await dbContext.RefreshTokens
             .Where(token => ids.Contains(token.Id))
             .ExecuteDeleteAsync(cancellationToken);
+    }
+
+    private Task AcquireUserRefreshLockAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        // Transaction-scoped advisory lock; key is stable for a given user id.
+        var lockKey = RefreshTokenAdvisoryLock.ForUser(userId);
+        return dbContext.Database.ExecuteSqlAsync(
+            $"SELECT pg_advisory_xact_lock({lockKey})",
+            cancellationToken);
+    }
+}
+
+internal static class RefreshTokenAdvisoryLock
+{
+    public static long ForUser(Guid userId)
+    {
+        var bytes = userId.ToByteArray();
+        return BitConverter.ToInt64(bytes, 0) ^ BitConverter.ToInt64(bytes, 8);
     }
 }

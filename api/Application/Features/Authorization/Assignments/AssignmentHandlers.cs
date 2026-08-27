@@ -18,6 +18,7 @@ public sealed class AssignGroupPermission(
     IUnitOfWork unitOfWork,
     IClock clock,
     ICurrentActor actor,
+    IDelegationAuthorityService delegationAuthority,
     IValidator<AssignGroupPermissionRequest> validator)
 {
     public async Task<Result> HandleAsync(
@@ -56,14 +57,14 @@ public sealed class AssignGroupPermission(
         }
 
         var privilegedPermissionFailure =
-            PrivilegedGroupGuard.EnsurePrivilegedPermissionAssignable(group, permission.Code);
+            PrivilegedGroupGuard.EnsurePrivilegedPermissionAssignable(group, permission);
         if (privilegedPermissionFailure is not null)
         {
             return privilegedPermissionFailure;
         }
 
         if (group.IsPrivileged ||
-            SystemPermissions.IsPrivilegedCatalogPermission(permission.Code))
+            SystemPermissions.IsPrivilegedCatalogPermission(permission))
         {
             var privilegedActorFailure =
                 await PrivilegedGroupGuard.EnsureActorCanManagePrivilegedAsync(
@@ -74,6 +75,15 @@ public sealed class AssignGroupPermission(
             {
                 return privilegedActorFailure;
             }
+        }
+
+        var delegationFailure = await delegationAuthority.EnsureCanDelegatePermissionAsync(
+            actor.UserId,
+            permission,
+            cancellationToken);
+        if (delegationFailure is not null)
+        {
+            return delegationFailure;
         }
 
         if (await store.GroupPermissionExistsAsync(
@@ -106,6 +116,7 @@ public sealed class AssignUserToGroup(
     IUnitOfWork unitOfWork,
     IClock clock,
     ICurrentActor actor,
+    IDelegationAuthorityService delegationAuthority,
     IValidator<AssignUserToGroupRequest> validator)
 {
     public async Task<Result> HandleAsync(
@@ -143,6 +154,16 @@ public sealed class AssignUserToGroup(
             }
         }
 
+        var delegationFailure =
+            await delegationAuthority.EnsureCanManageGroupUserAssignmentAsync(
+                actor.UserId,
+                group,
+                cancellationToken);
+        if (delegationFailure is not null)
+        {
+            return delegationFailure;
+        }
+
         if (await userAccountService.FindByIdAsync(request.UserId, cancellationToken) is null)
         {
             return Result.Failure(IdentityErrors.UserNotFound);
@@ -176,6 +197,8 @@ public sealed class AssignGroupOrganizationUnit(
     IAuthorizationAuditor auditor,
     IUnitOfWork unitOfWork,
     IClock clock,
+    ICurrentActor actor,
+    IDelegationAuthorityService delegationAuthority,
     IValidator<AssignGroupOrganizationUnitRequest> validator)
 {
     public async Task<Result> HandleAsync(
@@ -219,6 +242,16 @@ public sealed class AssignGroupOrganizationUnit(
             return Result.Failure(AuthorizationErrors.OrganizationUnitInactive);
         }
 
+        var delegationFailure =
+            await delegationAuthority.EnsureCanAssignOrganizationUnitScopeAsync(
+                actor.UserId,
+                request.OrganizationUnitId,
+                cancellationToken);
+        if (delegationFailure is not null)
+        {
+            return delegationFailure;
+        }
+
         if (await store.GroupOrganizationUnitExistsAsync(
                 request.GroupId,
                 request.OrganizationUnitId,
@@ -250,6 +283,7 @@ public sealed class RevokeGroupPermission(
     IAuthorizationAuditor auditor,
     IUnitOfWork unitOfWork,
     ICurrentActor actor,
+    IDelegationAuthorityService delegationAuthority,
     IValidator<RevokeGroupPermissionRequest> validator)
 {
     public async Task<Result> HandleAsync(
@@ -274,7 +308,7 @@ public sealed class RevokeGroupPermission(
             cancellationToken);
         if (permission is not null &&
             (group.IsPrivileged ||
-             SystemPermissions.IsPrivilegedCatalogPermission(permission.Code)))
+             SystemPermissions.IsPrivilegedCatalogPermission(permission)))
         {
             var privilegedActorFailure =
                 await PrivilegedGroupGuard.EnsureActorCanManagePrivilegedAsync(
@@ -284,6 +318,20 @@ public sealed class RevokeGroupPermission(
             if (privilegedActorFailure is not null)
             {
                 return privilegedActorFailure;
+            }
+        }
+
+        // Revoke only if the permission is still known and would be delegatable (symmetry),
+        // or the actor is privileged. Missing catalog rows skip delegation (assignment may be stale).
+        if (permission is not null)
+        {
+            var delegationFailure = await delegationAuthority.EnsureCanDelegatePermissionAsync(
+                actor.UserId,
+                permission,
+                cancellationToken);
+            if (delegationFailure is not null)
+            {
+                return delegationFailure;
             }
         }
 
@@ -313,6 +361,7 @@ public sealed class RevokeUserFromGroup(
     IAuthorizationAuditor auditor,
     IUnitOfWork unitOfWork,
     ICurrentActor actor,
+    IDelegationAuthorityService delegationAuthority,
     IValidator<RevokeUserFromGroupRequest> validator)
 {
     public async Task<Result> HandleAsync(
@@ -343,25 +392,33 @@ public sealed class RevokeUserFromGroup(
             {
                 return privilegedActorFailure;
             }
-
-            var lastMemberFailure =
-                await PrivilegedGroupGuard.EnsureNotLastPrivilegedMemberAsync(
-                    group,
-                    store,
-                    cancellationToken);
-            if (lastMemberFailure is not null)
-            {
-                return lastMemberFailure;
-            }
         }
 
-        var removed = await store.RemoveUserGroupMembershipAsync(
+        var delegationFailure =
+            await delegationAuthority.EnsureCanManageGroupUserAssignmentAsync(
+                actor.UserId,
+                group,
+                cancellationToken);
+        if (delegationFailure is not null)
+        {
+            return delegationFailure;
+        }
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        // Atomic remove + last-privileged-member guard (row lock inside store).
+        var removal = await store.TryRemoveUserGroupMembershipAsync(
             request.UserId,
             request.GroupId,
             cancellationToken);
-        if (!removed)
+        if (removal == MembershipRemoval.NotFound)
         {
             return Result.Failure(AuthorizationErrors.AssignmentNotFound);
+        }
+
+        if (removal == MembershipRemoval.LastPrivilegedMember)
+        {
+            return Result.Failure(AuthorizationErrors.LastPrivilegedMemberRequired);
         }
 
         await auditor.RecordAsync(
@@ -371,6 +428,7 @@ public sealed class RevokeUserFromGroup(
             $"userId={request.UserId}",
             cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Result.Success();
     }
 }
@@ -379,6 +437,8 @@ public sealed class RevokeGroupOrganizationUnit(
     IAuthorizationAdminStore store,
     IAuthorizationAuditor auditor,
     IUnitOfWork unitOfWork,
+    ICurrentActor actor,
+    IDelegationAuthorityService delegationAuthority,
     IValidator<RevokeGroupOrganizationUnitRequest> validator)
 {
     public async Task<Result> HandleAsync(
@@ -390,6 +450,36 @@ public sealed class RevokeGroupOrganizationUnit(
         if (validationFailure is not null)
         {
             return validationFailure;
+        }
+
+        var group = await store.FindGroupByIdAsync(request.GroupId, cancellationToken);
+        if (group is null)
+        {
+            return Result.Failure(AuthorizationErrors.GroupNotFound);
+        }
+
+        // Privileged groups remain global; OU scope is for delegated resource access only.
+        if (group.IsPrivileged)
+        {
+            return Result.Failure(AuthorizationErrors.PrivilegedGroupOrganizationUnitForbidden);
+        }
+
+        var unit = await store.FindOrganizationUnitByIdAsync(
+            request.OrganizationUnitId,
+            cancellationToken);
+        if (unit is null)
+        {
+            return Result.Failure(AuthorizationErrors.OrganizationUnitNotFound);
+        }
+
+        var delegationFailure =
+            await delegationAuthority.EnsureCanAssignOrganizationUnitScopeAsync(
+                actor.UserId,
+                request.OrganizationUnitId,
+                cancellationToken);
+        if (delegationFailure is not null)
+        {
+            return delegationFailure;
         }
 
         var removed = await store.RemoveGroupOrganizationUnitAsync(

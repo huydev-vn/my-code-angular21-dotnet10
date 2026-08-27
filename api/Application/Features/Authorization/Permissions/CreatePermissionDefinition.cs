@@ -39,7 +39,11 @@ public sealed class CreatePermissionDefinition(
             request.Name,
             request.Module,
             request.Action,
-            clock.UtcNow);
+            request.ScopeMode,
+            clock.UtcNow,
+            request.Resource,
+            request.RiskLevel,
+            isSystemManaged: false);
 
         await store.AddPermissionAsync(permission, cancellationToken);
         await auditor.RecordAsync(

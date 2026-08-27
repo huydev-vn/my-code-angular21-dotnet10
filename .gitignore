@@ -22,3 +22,5 @@ Thumbs.db
 **/.env.*
 **/appsettings.Development.json
 **/secrets.json
+.vscode/settings.json
+.cursor/mcp.json

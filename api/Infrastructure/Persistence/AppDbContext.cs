@@ -23,6 +23,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
 
     public DbSet<GroupOrganizationUnit> GroupOrganizationUnits => Set<GroupOrganizationUnit>();
 
+    public DbSet<UserOrganizationUnit> UserOrganizationUnits => Set<UserOrganizationUnit>();
+
     public DbSet<AuthorizationAuditEvent> AuthorizationAuditEvents => Set<AuthorizationAuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

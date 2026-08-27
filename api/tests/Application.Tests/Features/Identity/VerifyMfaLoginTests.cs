@@ -321,6 +321,13 @@ public sealed class VerifyMfaLoginTests
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<PageResult<OrganizationUnit>> ListOrganizationUnitsByIdsAsync(
+            PageRequest page,
+            IReadOnlyCollection<Guid> organizationUnitIds,
+            bool? isActive,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task AddOrganizationUnitAsync(
             OrganizationUnit unit,
             CancellationToken cancellationToken) =>
@@ -359,7 +366,7 @@ public sealed class VerifyMfaLoginTests
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task<bool> RemoveUserGroupMembershipAsync(
+        public Task<MembershipRemoval> TryRemoveUserGroupMembershipAsync(
             Guid userId,
             Guid groupId,
             CancellationToken cancellationToken) =>
@@ -379,6 +386,38 @@ public sealed class VerifyMfaLoginTests
         public Task<bool> RemoveGroupOrganizationUnitAsync(
             Guid groupId,
             Guid organizationUnitId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<Guid>> ListGroupOrganizationUnitIdsAsync(
+            Guid groupId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Guid>>([]);
+
+        public Task<UserOrganizationUnit?> FindUserOrganizationUnitAsync(
+            Guid userId,
+            Guid organizationUnitId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<UserOrganizationUnit?> FindActivePrimaryUserOrganizationUnitAsync(
+            Guid userId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task AddUserOrganizationUnitAsync(
+            UserOrganizationUnit membership,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<UserOrganizationUnit>> ListUserOrganizationUnitsAsync(
+            Guid userId,
+            bool activeOnly,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<PermissionDefinition>> ListActivePermissionsByCodesAsync(
+            IReadOnlyCollection<string> codes,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

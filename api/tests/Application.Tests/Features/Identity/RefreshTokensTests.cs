@@ -73,7 +73,7 @@ public sealed class RefreshTokensTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenRotationLosesRace_RevokesFamilyAndSignalsReuse()
+    public async Task HandleAsync_WhenRotationLosesRaceWithoutReplacement_RevokesFamilyAndSignalsReuse()
     {
         var userId = Guid.NewGuid();
         var familyId = Guid.NewGuid();
@@ -99,6 +99,67 @@ public sealed class RefreshTokensTests
         Assert.Equal(familyId, store.RevokedFamilyId);
         Assert.True(store.TryRotateCalled);
         Assert.Equal(1, metrics.RefreshReuseDetectedCount);
+        Assert.Equal(1, metrics.RefreshFailedCount);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenConcurrentRotationWithinGrace_DoesNotRevokeFamily()
+    {
+        var userId = Guid.NewGuid();
+        var familyId = Guid.NewGuid();
+        var stored = RefreshToken.Issue(
+            userId,
+            tokenHash: "abc",
+            familyId,
+            Now.AddDays(-1),
+            Now.AddDays(7));
+        stored.Revoke(Now.AddSeconds(-1), replacedByTokenId: Guid.NewGuid());
+
+        var store = new FakeRefreshTokenStore(stored, rotateSucceeds: false);
+        var users = new FakeUserAccountService(
+            new UserAccount(userId, "user@example.com", Now.AddYears(-1), IsLockedOut: false, TwoFactorEnabled: false));
+        var metrics = new CountingAuthMetrics();
+        var handler = CreateHandler(store, users, metrics);
+
+        var result = await handler.HandleAsync(
+            new RefreshTokensRequest { RefreshToken = "plain-token" },
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(IdentityErrors.InvalidRefreshToken, result.Error);
+        Assert.Null(store.RevokedFamilyId);
+        Assert.Equal(0, metrics.RefreshReuseDetectedCount);
+        Assert.Equal(1, metrics.RefreshFailedCount);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenRotationLosesRaceToConcurrentWinner_DoesNotRevokeFamily()
+    {
+        var userId = Guid.NewGuid();
+        var familyId = Guid.NewGuid();
+        var stored = RefreshToken.Issue(
+            userId,
+            tokenHash: "abc",
+            familyId,
+            Now.AddDays(-1),
+            Now.AddDays(7));
+
+        var store = new FakeRefreshTokenStore(
+            stored,
+            rotateSucceeds: false,
+            markReplacedOnFailedRotate: true);
+        var users = new FakeUserAccountService(
+            new UserAccount(userId, "user@example.com", Now.AddYears(-1), IsLockedOut: false, TwoFactorEnabled: false));
+        var metrics = new CountingAuthMetrics();
+        var handler = CreateHandler(store, users, metrics);
+
+        var result = await handler.HandleAsync(
+            new RefreshTokensRequest { RefreshToken = "plain-token" },
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Null(store.RevokedFamilyId);
+        Assert.Equal(0, metrics.RefreshReuseDetectedCount);
         Assert.Equal(1, metrics.RefreshFailedCount);
     }
 
@@ -287,7 +348,10 @@ public sealed class RefreshTokensTests
             throw new NotSupportedException();
     }
 
-    private sealed class FakeRefreshTokenStore(RefreshToken? stored, bool rotateSucceeds = true) : IRefreshTokenStore
+    private sealed class FakeRefreshTokenStore(
+        RefreshToken? stored,
+        bool rotateSucceeds = true,
+        bool markReplacedOnFailedRotate = false) : IRefreshTokenStore
     {
         public Guid? RevokedFamilyId { get; private set; }
 
@@ -326,6 +390,11 @@ public sealed class RefreshTokensTests
             CancellationToken cancellationToken)
         {
             TryRotateCalled = true;
+            if (!rotateSucceeds && markReplacedOnFailedRotate && stored is not null && !stored.IsRevoked)
+            {
+                stored.Revoke(revokedAt, replacedByTokenId: next.Id);
+            }
+
             return Task.FromResult(rotateSucceeds);
         }
 

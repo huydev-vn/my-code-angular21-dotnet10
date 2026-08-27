@@ -1,12 +1,18 @@
+using Domain.Authorization;
+
 namespace Application.Features.Authorization.Contracts;
 
-/// <summary>A permission catalog entry.</summary>
+/// <summary>A permission catalog entry with admin metadata (does not invent policies).</summary>
 public sealed record PermissionDefinitionResponse(
     Guid Id,
     string Code,
     string Name,
     string? Module,
     string? Action,
+    string? Resource,
+    PermissionScopeMode ScopeMode,
+    PermissionRiskLevel RiskLevel,
+    bool IsSystemManaged,
     bool IsActive,
     DateTimeOffset CreatedAt);
 
@@ -61,3 +67,32 @@ public sealed record AssignmentResponse(
     Guid GroupId,
     Guid TargetId,
     DateTimeOffset AssignedAt);
+
+/// <summary>User↔OU organizational membership (does not grant data access).</summary>
+public sealed record UserOrganizationUnitResponse(
+    Guid UserId,
+    Guid OrganizationUnitId,
+    OrganizationUnitRelationship Relationship,
+    bool IsActive,
+    DateTimeOffset AssignedAt);
+
+/// <summary>Granted permission with catalog metadata for UI capability checks.</summary>
+public sealed record PermissionCapabilityResponse(
+    string Code,
+    string Name,
+    string? Resource,
+    string? Action,
+    PermissionScopeMode ScopeMode,
+    PermissionRiskLevel RiskLevel);
+
+/// <summary>
+/// Rich capability payload for the signed-in user. Resolve server-side; do not embed in JWT.
+/// <see cref="AccessibleOrganizationUnitIds"/> is group→OU scope only;
+/// <see cref="UserOrganizationUnits"/> is separate organizational membership metadata.
+/// </summary>
+public sealed record UserCapabilitiesResponse(
+    Guid UserId,
+    IReadOnlyList<string> Groups,
+    IReadOnlyList<PermissionCapabilityResponse> Permissions,
+    IReadOnlyList<Guid> AccessibleOrganizationUnitIds,
+    IReadOnlyList<UserOrganizationUnitResponse> UserOrganizationUnits);

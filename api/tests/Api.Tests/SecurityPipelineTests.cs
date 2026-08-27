@@ -37,11 +37,28 @@ public sealed class SecurityPipelineTests(ApiFactory factory) : IClassFixture<Ap
     }
 
     [Fact]
+    public async Task CorrelationId_WithUnsafeValue_IsReplacedByTraceIdentifier()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/health/live");
+        request.Headers.Add(CorrelationIdMiddleware.HeaderName, "bad id with spaces!");
+
+        var response = await _client.SendAsync(request);
+
+        var echoed = response.Headers.GetValues(CorrelationIdMiddleware.HeaderName).Single();
+        Assert.NotEqual("bad id with spaces!", echoed);
+        Assert.False(string.IsNullOrWhiteSpace(echoed));
+    }
+
+    [Fact]
     public async Task Login_WithEmptyBody_ReturnsValidationProblem()
     {
-        var response = await _client.PostAsJsonAsync(
-            "/api/identity/login",
-            new { email = "", password = "" });
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/identity/login")
+        {
+            Content = JsonContent.Create(new { email = "", password = "" })
+        };
+        request.Headers.TryAddWithoutValidation("Origin", "http://localhost:4200");
+
+        var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var payload = await response.Content.ReadAsStringAsync();
@@ -94,6 +111,25 @@ public sealed class SecurityPipelineTests(ApiFactory factory) : IClassFixture<Ap
             })
         };
         request.Headers.TryAddWithoutValidation("Origin", "https://evil.example");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var payload = await response.Content.ReadAsStringAsync();
+        Assert.Contains("identity.csrf_origin_rejected", payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Login_WithoutOriginOrReferer_ReturnsCsrfForbidden()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/identity/login")
+        {
+            Content = JsonContent.Create(new
+            {
+                email = "user@example.com",
+                password = "Password123!@#"
+            })
+        };
 
         var response = await _client.SendAsync(request);
 

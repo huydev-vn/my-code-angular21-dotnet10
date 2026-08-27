@@ -21,14 +21,17 @@ Reference: `api/docs/auth-development.md` and `api/README.md`.
 - Refresh tokens: store hashes only in PostgreSQL; rotate on use; revoke family on reuse/race.
 - Browser refresh cookie: HttpOnly, SameSite=Lax, Path=/api/identity, Secure outside Development.
 - Do not put refresh tokens in JSON responses for browser clients.
-- Cookie POSTs to refresh/revoke/login/register/mfa/verify require trusted Origin/Referer (CSRF).
+- Cookie POSTs to refresh/revoke require trusted Origin/Referer when the refresh cookie is present.
+- Login/register/mfa/verify always require trusted Origin/Referer (reject when both are missing).
 
 ## Authorization
 
 - Protect admin endpoints with specific `authorization.*` or resource permissions.
 - Use `[RequirePermissionOnUnit]` for resource APIs that are organization-unit scoped.
+- Expose caller-accessible OUs via `GET /api/authorization/me/organization-units`; business OU APIs need `[RequirePermissionOnUnit]` plus Application `IAuthorizationScopeService` checks (catalog does not auto-protect).
 - Permission mutations must audit and bump authorization state version after PostgreSQL commit.
-- Never remove the last active member of a privileged group.
+- Never remove the last active member of a privileged group (atomic remove under row lock).
+- If the shared authz version bump fails after commit, activate cache bypass so replicas do not serve stale Redis entries.
 
 ## Redis
 
@@ -36,7 +39,8 @@ Reference: `api/docs/auth-development.md` and `api/README.md`.
 - Do not introduce a generic `BaseRedisService`.
 - Prefer `Redis:ConnectionString`, with fallback to `ConnectionStrings:Redis`.
 - Every Redis key needs the app prefix and a TTL when the value is temporary.
-- If the shared authz version cannot be read, bypass distributed cache and load from PostgreSQL.
+- If the shared authz version cannot be read (or cache bypass is active), bypass distributed cache and load from PostgreSQL.
+- Login/MFA distributed rate limits should fail closed when Redis is unavailable.
 
 ## Security hygiene
 

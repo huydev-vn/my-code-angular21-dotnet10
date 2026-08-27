@@ -5,8 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 namespace Api.Authorization;
 
 /// <summary>
-/// Requires a permission and that the caller can access the organization unit
-/// identified by the named route value.
+/// Requires a permission. When the permission's catalog ScopeMode is OrganizationUnit,
+/// also requires access to the organization unit identified by the named route/query value.
+/// Global/None ScopeMode succeeds on the permission grant alone (OU param ignored).
 /// </summary>
 internal sealed class RequirePermissionOnUnitAttribute : AuthorizeAttribute
 {

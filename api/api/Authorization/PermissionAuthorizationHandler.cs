@@ -13,12 +13,21 @@ internal sealed class PermissionRequirement(
     public string? OrganizationUnitRouteKey { get; } = organizationUnitRouteKey;
 }
 
+/// <summary>Succeeds when the caller holds any one of the listed permissions.</summary>
+internal sealed class AnyPermissionRequirement(IReadOnlyList<string> permissions)
+    : Microsoft.AspNetCore.Authorization.IAuthorizationRequirement
+{
+    public IReadOnlyList<string> Permissions { get; } = permissions;
+}
+
 /// <summary>
 /// Resolves permission (and optional organization-unit) checks from the database
 /// instead of JWT claims so revocations take effect immediately.
+/// Respects catalog <c>ScopeMode</c>: Global/None ignore route OU; OrganizationUnit requires it.
 /// </summary>
 internal sealed class PermissionAuthorizationHandler(
     IAuthorizationDecisionService decisionService,
+    IAuthorizationScopeService scopeService,
     IHttpContextAccessor httpContextAccessor,
     ILogger<PermissionAuthorizationHandler> logger)
     : Microsoft.AspNetCore.Authorization.AuthorizationHandler<PermissionRequirement>
@@ -38,26 +47,23 @@ internal sealed class PermissionAuthorizationHandler(
 
         if (requirement.OrganizationUnitRouteKey is not null)
         {
-            if (httpContext is null ||
-                !TryGetOrganizationUnitId(
+            Guid? organizationUnitId = null;
+            if (httpContext is not null &&
+                TryGetOrganizationUnitId(
                     httpContext,
                     requirement.OrganizationUnitRouteKey,
-                    out var organizationUnitId))
+                    out var parsedUnitId))
             {
-                logger.LogWarning(
-                    "Authorization denied for user {UserId}: missing organization unit route value {RouteKey}.",
-                    userId,
-                    requirement.OrganizationUnitRouteKey);
-                return;
+                organizationUnitId = parsedUnitId;
             }
 
-            var unitDecision = await decisionService.HasPermissionOnUnitAsync(
+            var scopedDecision = await scopeService.AuthorizePermissionWithOptionalUnitAsync(
                 userId.Value,
                 requirement.Permission,
                 organizationUnitId,
                 cancellationToken);
 
-            if (unitDecision.IsAllowed)
+            if (scopedDecision.IsAllowed)
             {
                 context.Succeed(requirement);
                 return;
@@ -68,7 +74,7 @@ internal sealed class PermissionAuthorizationHandler(
                 userId,
                 requirement.Permission,
                 organizationUnitId,
-                unitDecision.Reason);
+                scopedDecision.Reason);
             return;
         }
 
@@ -109,5 +115,48 @@ internal sealed class PermissionAuthorizationHandler(
 
         organizationUnitId = Guid.Empty;
         return false;
+    }
+}
+
+/// <summary>
+/// OR-check across permission codes for two-tier admin routes
+/// (e.g. <c>authorization.groups.write</c> OR <c>authorization.assignments.delegate</c>).
+/// </summary>
+internal sealed class AnyPermissionAuthorizationHandler(
+    IAuthorizationDecisionService decisionService,
+    IHttpContextAccessor httpContextAccessor,
+    ILogger<AnyPermissionAuthorizationHandler> logger)
+    : Microsoft.AspNetCore.Authorization.AuthorizationHandler<AnyPermissionRequirement>
+{
+    protected override async Task HandleRequirementAsync(
+        Microsoft.AspNetCore.Authorization.AuthorizationHandlerContext context,
+        AnyPermissionRequirement requirement)
+    {
+        var userId = context.User.GetUserId();
+        if (userId is null)
+        {
+            return;
+        }
+
+        var cancellationToken =
+            httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
+
+        foreach (var permission in requirement.Permissions)
+        {
+            var decision = await decisionService.HasPermissionAsync(
+                userId.Value,
+                permission,
+                cancellationToken);
+            if (decision.IsAllowed)
+            {
+                context.Succeed(requirement);
+                return;
+            }
+        }
+
+        logger.LogWarning(
+            "Authorization denied for user {UserId}; none of permissions [{Permissions}] granted.",
+            userId,
+            string.Join(", ", requirement.Permissions));
     }
 }

@@ -40,6 +40,8 @@ internal sealed class EfUnitOfWork(
                 or GroupPermission
                 or UserGroupMembership
                 or GroupOrganizationUnit);
+    // Agent C: UserOrganizationUnit is intentionally omitted — it does not affect
+    // permission/scope cache and must not bump the shared authorization state version.
 
     private sealed class EfUnitOfWorkTransaction(IDbContextTransaction transaction)
         : IUnitOfWorkTransaction

@@ -36,6 +36,10 @@ public static class AuthorizationSeeder
             adminGroup.Id,
             logger,
             cancellationToken);
+
+        // Seeders bypass EfUnitOfWork; bump so distributed authorization caches drop.
+        var stateVersion = services.GetRequiredService<IAuthorizationStateVersion>();
+        await stateVersion.BumpAsync(cancellationToken);
     }
 
     private static async Task SeedPermissionsAsync(
@@ -49,7 +53,7 @@ public static class AuthorizationSeeder
             .ToListAsync(cancellationToken);
         var existing = existingCodes.ToHashSet(StringComparer.Ordinal);
 
-        foreach (var (code, name, module, action) in SystemPermissions.All)
+        foreach (var (code, name, module, action, resource, scopeMode, riskLevel) in SystemPermissions.All)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -59,7 +63,16 @@ public static class AuthorizationSeeder
             }
 
             dbContext.PermissionDefinitions.Add(
-                PermissionDefinition.Create(code, name, module, action, clock.UtcNow));
+                PermissionDefinition.Create(
+                    code,
+                    name,
+                    module,
+                    action,
+                    scopeMode,
+                    clock.UtcNow,
+                    resource,
+                    riskLevel,
+                    isSystemManaged: true));
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

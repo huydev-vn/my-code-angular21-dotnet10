@@ -85,4 +85,24 @@ public static class AuthorizationErrors
         Error.Validation(
             "authorization.organization_unit_inactive",
             "Assignments cannot target an inactive organization unit.");
+
+    public static readonly Error PrimaryOrganizationUnitAlreadyAssigned =
+        Error.Conflict(
+            "authorization.primary_organization_unit_already_assigned",
+            "The user already has an active Primary organization unit.");
+
+    public static readonly Error DelegationPermissionForbidden =
+        Error.Forbidden(
+            "authorization.delegation_permission_forbidden",
+            "You may only assign or revoke permissions you hold that are not privileged or Critical.");
+
+    public static readonly Error DelegationScopeForbidden =
+        Error.Forbidden(
+            "authorization.delegation_scope_forbidden",
+            "You may only assign organization-unit scope within your accessible organization units.");
+
+    public static readonly Error DelegationGroupForbidden =
+        Error.Forbidden(
+            "authorization.delegation_group_forbidden",
+            "You may only manage user membership for groups whose organization-unit scopes are within your authority.");
 }

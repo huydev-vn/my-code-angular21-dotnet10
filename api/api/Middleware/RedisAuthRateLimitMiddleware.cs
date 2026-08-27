@@ -10,14 +10,11 @@ namespace Api.Middleware;
 /// </summary>
 internal sealed class RedisAuthRateLimitMiddleware(RequestDelegate next)
 {
-    private static readonly PathString[] AuthPaths =
-    [
-        new("/api/identity/login"),
-        new("/api/identity/register"),
-        new("/api/identity/refresh"),
-        new("/api/identity/revoke"),
-        new("/api/identity/mfa/verify")
-    ];
+    private static readonly PathString LoginPath = new("/api/identity/login");
+    private static readonly PathString RegisterPath = new("/api/identity/register");
+    private static readonly PathString MfaVerifyPath = new("/api/identity/mfa/verify");
+    private static readonly PathString RefreshPath = new("/api/identity/refresh");
+    private static readonly PathString RevokePath = new("/api/identity/revoke");
 
     private const int PermitLimit = 10;
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
@@ -25,17 +22,21 @@ internal sealed class RedisAuthRateLimitMiddleware(RequestDelegate next)
     public async Task InvokeAsync(HttpContext context)
     {
         var store = context.RequestServices.GetService<RedisAuthRateLimitStore>();
-        if (store is null || !RequiresLimit(context.Request))
+        if (store is null || !TryGetLimitedPath(context.Request, out var path, out var failClosed))
         {
             await next(context);
             return;
         }
 
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        var path = context.Request.Path.Value?.ToLowerInvariant() ?? "/";
         var partitionKey = $"{ip}|{path}";
 
-        if (!await store.TryAcquireAsync(partitionKey, PermitLimit, Window, context.RequestAborted))
+        if (!await store.TryAcquireAsync(
+                partitionKey,
+                PermitLimit,
+                Window,
+                context.RequestAborted,
+                failClosed))
         {
             context.RequestServices
                 .GetService<Application.Features.Identity.Abstractions.IAuthMetrics>()
@@ -59,7 +60,35 @@ internal sealed class RedisAuthRateLimitMiddleware(RequestDelegate next)
         await next(context);
     }
 
-    private static bool RequiresLimit(HttpRequest request) =>
-        HttpMethods.IsPost(request.Method) &&
-        AuthPaths.Any(path => request.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
+    private static bool TryGetLimitedPath(
+        HttpRequest request,
+        out string path,
+        out bool failClosed)
+    {
+        path = string.Empty;
+        failClosed = false;
+        if (!HttpMethods.IsPost(request.Method))
+        {
+            return false;
+        }
+
+        if (request.Path.Equals(LoginPath, StringComparison.OrdinalIgnoreCase) ||
+            request.Path.Equals(RegisterPath, StringComparison.OrdinalIgnoreCase) ||
+            request.Path.Equals(MfaVerifyPath, StringComparison.OrdinalIgnoreCase))
+        {
+            path = request.Path.Value?.ToLowerInvariant() ?? "/";
+            failClosed = true;
+            return true;
+        }
+
+        if (request.Path.Equals(RefreshPath, StringComparison.OrdinalIgnoreCase) ||
+            request.Path.Equals(RevokePath, StringComparison.OrdinalIgnoreCase))
+        {
+            path = request.Path.Value?.ToLowerInvariant() ?? "/";
+            failClosed = false;
+            return true;
+        }
+
+        return false;
+    }
 }

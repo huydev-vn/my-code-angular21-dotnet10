@@ -1,5 +1,6 @@
 using Application.Common.Results;
 using Application.Features.Authorization.Abstractions;
+using Application.Features.Authorization;
 
 namespace Application.Features.Authorization.GetContext;
 

@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped<GetOrganizationUnit>();
         services.AddScoped<ListOrganizationUnits>();
         services.AddScoped<UpdateOrganizationUnit>();
+        services.AddScoped<MoveOrganizationUnit>();
         services.AddScoped<SetOrganizationUnitActive>();
         services.AddScoped<AssignGroupPermission>();
         services.AddScoped<AssignUserToGroup>();
@@ -60,6 +61,19 @@ public static class DependencyInjection
         services.AddScoped<RevokeGroupOrganizationUnit>();
         services.AddScoped<ListAuthorizationAuditEvents>();
         services.AddScoped<GetUserAuthorizationContext>();
+
+        // Agent B — organization-unit scope enforcement platform
+        services.AddScoped<Features.Authorization.Abstractions.IAuthorizationScopeService, Features.Authorization.AuthorizationScopeService>();
+        services.AddScoped<ListAccessibleOrganizationUnits>();
+
+        // Agent C
+        services.AddScoped<AssignUserOrganizationUnit>();
+        services.AddScoped<RevokeUserOrganizationUnit>();
+        services.AddScoped<ListUserOrganizationUnits>();
+        services.AddScoped<GetUserCapabilities>();
+
+        // Agent D — delegated administration grant containment
+        services.AddScoped<Features.Authorization.Abstractions.IDelegationAuthorityService, Features.Authorization.DelegationAuthorityService>();
 
         return services;
     }

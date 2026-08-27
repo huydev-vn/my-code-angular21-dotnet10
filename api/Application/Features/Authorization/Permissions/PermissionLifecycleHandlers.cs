@@ -8,10 +8,14 @@ using FluentValidation;
 
 namespace Application.Features.Authorization.Permissions;
 
+/// <summary>Payload for updating permission catalog metadata (Code remains immutable).</summary>
 public sealed record UpdatePermissionDefinitionRequest(
     string Name,
     string? Module,
-    string? Action);
+    string? Action,
+    string? Resource,
+    PermissionScopeMode ScopeMode,
+    PermissionRiskLevel RiskLevel);
 
 internal sealed class UpdatePermissionDefinitionValidator
     : AbstractValidator<UpdatePermissionDefinitionRequest>
@@ -21,6 +25,9 @@ internal sealed class UpdatePermissionDefinitionValidator
         RuleFor(request => request.Name).NotEmpty().MaximumLength(256);
         RuleFor(request => request.Module).MaximumLength(128);
         RuleFor(request => request.Action).MaximumLength(128);
+        RuleFor(request => request.Resource).MaximumLength(128);
+        RuleFor(request => request.ScopeMode).IsInEnum();
+        RuleFor(request => request.RiskLevel).IsInEnum();
     }
 }
 
@@ -49,7 +56,13 @@ public sealed class UpdatePermissionDefinition(
                 AuthorizationErrors.PermissionNotFound);
         }
 
-        permission.Update(request.Name, request.Module, request.Action);
+        permission.Update(
+            request.Name,
+            request.Module,
+            request.Action,
+            request.Resource,
+            request.ScopeMode,
+            request.RiskLevel);
         await auditor.RecordAsync(
             AuthorizationAuditActions.PermissionUpdated,
             nameof(PermissionDefinition),

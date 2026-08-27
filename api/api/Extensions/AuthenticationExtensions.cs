@@ -72,6 +72,7 @@ internal static class AuthenticationExtensions
         });
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionAuthorizationPolicyProvider>();
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, AnyPermissionAuthorizationHandler>();
         services.AddScoped<ICurrentActor, HttpCurrentActor>();
 
         return services;

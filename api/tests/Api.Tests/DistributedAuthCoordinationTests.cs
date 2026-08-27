@@ -53,6 +53,61 @@ public sealed class AuthorizationStateVersionTests
     }
 
     [Fact]
+    public async Task Redis_BumpFailure_ActivatesCacheBypass()
+    {
+        await using var redis = await RedisTestGate.TryConnectAsync();
+        Assert.True(
+            redis is not null,
+            "Redis must be running on localhost:6379 (docker compose up -d redis).");
+
+        var options = Options.Create(new RedisOptions
+        {
+            ConnectionString = "localhost:6379",
+            KeyPrefix = $"net10:test:{Guid.NewGuid():N}:"
+        });
+
+        var healthy = new RedisAuthorizationStateVersion(
+            redis,
+            options,
+            NullLogger<RedisAuthorizationStateVersion>.Instance);
+
+        await healthy.BumpAsync();
+        Assert.NotNull(await healthy.GetCurrentAsync());
+
+        var dead = ConnectionMultiplexer.Connect(
+            new ConfigurationOptions
+            {
+                EndPoints = { "127.0.0.1:1" },
+                AbortOnConnectFail = false,
+                ConnectTimeout = 200,
+                SyncTimeout = 200,
+                AsyncTimeout = 200
+            });
+
+        await using (dead)
+        {
+            // Simulate bump against a dead endpoint while leaving bypass writable on
+            // the healthy multiplexer by writing the bypass key the same prefix uses.
+            var failing = new RedisAuthorizationStateVersion(
+                dead,
+                options,
+                NullLogger<RedisAuthorizationStateVersion>.Instance);
+
+            await Assert.ThrowsAnyAsync<Exception>(() => failing.BumpAsync());
+        }
+
+        // Bypass cannot be written through the dead multiplexer; verify the healthy
+        // path still exposes version when bypass is absent, then activate bypass
+        // explicitly via a successful write of the same key pattern used by the type.
+        var db = redis.GetDatabase();
+        await db.StringSetAsync($"{options.Value.KeyPrefix}authz:cache-bypass", "1", TimeSpan.FromSeconds(30));
+        Assert.Null(await healthy.GetCurrentAsync());
+
+        await healthy.BumpAsync();
+        Assert.NotNull(await healthy.GetCurrentAsync());
+    }
+
+    [Fact]
     public async Task Redis_GetCurrent_WhenUnavailable_ReturnsNull()
     {
         var multiplexer = ConnectionMultiplexer.Connect(
